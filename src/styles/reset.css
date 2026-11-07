@@ -1,0 +1,74 @@
+/**
+ * Nano Route — Base Reset & Accessibility Foundation
+ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--nr-font-sans);
+  color-scheme: dark;
+  background-color: var(--nr-bg-app);
+  color: var(--nr-text-primary);
+  line-height: 1.5;
+  font-weight: 400;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--nr-bg-app);
+  color: var(--nr-text-primary);
+  overflow-x: hidden;
+}
+
+/* Accessible selection highlight */
+::selection {
+  background-color: var(--nr-accent-purple);
+  color: var(--nr-text-primary);
+}
+
+/* Consistent Windows desktop scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--nr-border-default);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--nr-border-strong);
+}
+
+/* Accessible focus-visible behavior */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--nr-focus-ring);
+}
+
+/* Reduced Motion Override per Section 34 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

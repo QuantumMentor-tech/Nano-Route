@@ -1,0 +1,97 @@
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./reset.css";
+
+/* Core Nano Route Typography Classes */
+.nr-display {
+  font-size: 2rem;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--nr-text-primary);
+}
+
+.nr-title-page {
+  font-size: 1.5rem;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--nr-text-primary);
+}
+
+.nr-title-section {
+  font-size: 1.25rem;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--nr-text-primary);
+}
+
+.nr-title-subsection {
+  font-size: 1.125rem;
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--nr-text-primary);
+}
+
+.nr-body {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--nr-text-secondary);
+}
+
+.nr-body-small {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--nr-text-secondary);
+}
+
+.nr-label {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--nr-text-secondary);
+}
+
+.nr-caption {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--nr-text-muted);
+}
+
+.nr-code {
+  font-family: var(--nr-font-mono);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  background-color: var(--nr-bg-surface-elevated);
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-sm);
+  padding: 0.125rem 0.375rem;
+  color: var(--nr-accent-blue);
+}
+
+/* Accessibility Skip Link */
+.nr-skip-link {
+  position: absolute;
+  top: -100px;
+  left: 1rem;
+  z-index: var(--nr-z-toast);
+  background-color: var(--nr-accent-purple);
+  color: var(--nr-text-primary);
+  padding: 0.5rem 1rem;
+  border-radius: var(--nr-radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+  box-shadow: var(--nr-shadow-lg);
+  transition: top var(--nr-transition-fast);
+}
+
+.nr-skip-link:focus {
+  top: 1rem;
+  outline: none;
+  box-shadow: var(--nr-focus-ring);
+}
