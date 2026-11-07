@@ -45,6 +45,11 @@ Commands reside in `src-tauri/src/commands/` and are grouped by domain:
 | `cmd_health_check` | `commands::health` | None | `String` | Legacy smoke-test verifying IPC bridge connectivity | IMPLEMENTED |
 | `cmd_get_health` | `commands::health` | None | `Result<HealthReport, String>` | Full structured health report of all native subsystems | IMPLEMENTED |
 | `cmd_get_app_info` | `commands::app` | None | `Result<AppInfo, String>` | Authoritative application build metadata and environment | IMPLEMENTED |
+| `cmd_ping` | `commands::diagnostics` | `PingRequest` | `Result<PingResponse, String>` | High-performance diagnostic IPC round-trip | IMPLEMENTED |
+| `cmd_start_stream` | `commands::streaming` | `StreamRequest, Channel` | `Result<StreamStartResult, String>` | High-throughput ordered channel stream initiation | IMPLEMENTED (Step 15) |
+| `cmd_cancel_stream` | `commands::streaming` | `String` | `Result<bool, String>` | Cooperative stream session cancellation | IMPLEMENTED (Step 15) |
+| `cmd_get_stream_status` | `commands::streaming` | `String` | `Result<Option<StreamLifecycleState>, String>` | Query active stream lifecycle state | IMPLEMENTED (Step 15) |
+| `cmd_get_database_health` | `commands::database` | None | `Result<DatabaseHealthReport, String>` | Structured SQLite health and integrity report | IMPLEMENTED (Step 16) |
 | `cmd_chat_send` | `commands::chat` | `ChatRequestDto` | `Result<ChatResponseDto, AppError>` | Conversational execution | DEFERRED (Step 24) |
 | `cmd_save_key` | `commands::security` | `KeyStorageDto` | `Result<(), AppError>` | DPAPI credential storage | DEFERRED (Step 12) |
 | `cmd_route_task` | `commands::routing` | `TaskPromptDto` | `Result<RouteDecisionDto, AppError>` | Model evaluation | DEFERRED (Step 17) |
@@ -95,12 +100,13 @@ Long-lived application state is managed by Tauri through `src-tauri/src/state/ap
 pub struct AppState {
     pub app_service: Arc<AppService>,
     pub health_service: Arc<HealthService>,
+    pub task_manager: Arc<TaskManager>,
     pub initialized_at: RwLock<Option<String>>,
 }
 ```
 ### State Rules:
 - Registered once via `tauri::Builder::default().manage(app_state)`.
-- Services are stored inside `Arc` wrappers, allowing zero-copy sharing across Tokio async worker threads.
+- Services and TaskManager are stored inside `Arc` wrappers, allowing zero-copy sharing across Tokio async worker threads.
 - Mutable runtime timestamps are protected by `std::sync::RwLock`.
 - Transient request data and credentials are never stored in global state.
 
@@ -113,7 +119,19 @@ impl Application {
     pub fn bootstrap() -> Result<AppState, AppError> {
         let app_service = Arc::new(AppService::new());
         let health_service = Arc::new(HealthService::new());
-        let state = AppState::new(app_service, health_service);
+        let task_manager = Arc::new(TaskManager::new());
+        let stream_coordinator = Arc::new(StreamCoordinator::new(task_manager.clone()));
+        let database_manager = Arc::new(DatabaseManager::initialize()?);
+        let chat_service = Arc::new(ChatService::new(database_manager.clone()));
+
+        let state = AppState::new(
+            app_service,
+            health_service,
+            task_manager,
+            stream_coordinator,
+            database_manager,
+            chat_service,
+        );
         state.mark_initialized("2026-11-07T00:00:00Z");
         Ok(state)
     }
@@ -129,10 +147,23 @@ impl Application {
 
 ---
 
-## 10. Async Model
-- Asynchronous commands utilize the Tokio multi-threaded runtime provided natively by Tauri v2.
-- Genuinely fast, local operations (such as reading cached health reports or app metadata) execute synchronously without unneeded async overhead.
-- Heavy operations (future SLM inference and HTTP calls) will execute asynchronously on Tokio worker threads without blocking the main OS event loop.
+## 10. Async Model & Background Task Infrastructure (Step 13)
+- Asynchronous execution is coordinated through `TaskManager` (`src-tauri/src/core/tasks/`):
+```text
+Application Core
+  ↓
+TaskManager
+  ├── Async Tasks (I/O, lightweight background operations)
+  ├── Blocking Work (spawn_blocking with cooperative cancellation)
+  ├── Concurrency Control (TaskConcurrencyLimiter with Semaphore bounds)
+  ├── Cooperative Cancellation (CancellationToken with parent/child trees)
+  └── Shutdown Coordination (rejection of new work + bounded shutdown sweep)
+```
+- **TaskManager owns background task lifecycle; services own domain results.**
+- **TaskManager does NOT own AI response payloads or prompts.**
+- **Task IDs differ from Request IDs:** A single IPC request ID can correlate multiple child task IDs.
+- **Blocking Work Limitation:** `spawn_blocking` cannot be forcibly aborted once started; cancellation is cooperative.
+- Heavy operations (future SLM inference and HTTP calls) will execute through `TaskManager` without blocking the main OS event loop or overloading CPU cores.
 
 ---
 
@@ -174,9 +205,20 @@ State readiness is recorded in `AppState::initialized_at`.
 
 ---
 
-## 16. Future Provider Boundary
-*Status: PLANNED (Step 19)*  
-The service layer will interact with external AI providers exclusively through a standardized `ProviderClient` trait defining streaming and completion methods. Individual provider SDKs will never be called directly from commands.
+## 16. Provider Boundary (Step 14 Baseline)
+*Status: IMPLEMENTED & VALIDATED (`src-tauri/src/providers/`)*  
+The service layer interacts with external AI providers exclusively through a standardized `ProviderClient` trait (`#[async_trait] pub trait ProviderClient: Send + Sync`) defining completion and health probe methods. 
+
+Key architecture components:
+- `ProviderId`: Strongly typed slug identifying providers (`openai`, `anthropic`, `gemini`, `deepseek`, `mistral`, `xai`, `groq`, `local`, `custom`).
+- `ProviderCapabilities`: 13 discrete capabilities (`supports()`, `supports_all()`, presets).
+- `ProviderModel`: Rich model descriptors with physical context limits and per-Mtoken pricing.
+- `ProviderRequest`: Canonical request object with pre-flight `.validate()` invariants.
+- `ProviderResponse`: Normalized response object with token accounting and finish reason categorization.
+- `ProviderHealth`: 8-state operational state machine (`is_operational()`).
+- `ProviderError`: 13 discrete error kinds with automatic secret token scrubbing (`sanitize_error_text`).
+- `MockProviderClient`: In-memory deterministic test double for testing without network egress.
+- Direct integration with `TaskContext` from `core::tasks` for cooperative task cancellation.
 
 ---
 

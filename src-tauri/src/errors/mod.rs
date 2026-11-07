@@ -18,6 +18,8 @@ pub enum AppError {
     InitializationFailed(String),
     /// Invalid command argument or IPC request payload.
     InvalidInput(String),
+    /// Entity or resource not found.
+    NotFound(String),
     /// Internal unexpected error with sanitized diagnostic message.
     Internal(String),
 }
@@ -28,6 +30,7 @@ impl fmt::Display for AppError {
             AppError::ServiceUnavailable(msg) => write!(f, "Service unavailable: {}", msg),
             AppError::InitializationFailed(msg) => write!(f, "Initialization failed: {}", msg),
             AppError::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
+            AppError::NotFound(msg) => write!(f, "Not found: {}", msg),
             AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
     }

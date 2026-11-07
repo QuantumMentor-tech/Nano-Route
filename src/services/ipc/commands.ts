@@ -17,6 +17,7 @@ import {
   type NativeAppInfo,
   type IpcPingResponse,
   type IpcPingRequest,
+  type DatabaseHealthReport,
 } from "./types.ts";
 
 /**
@@ -143,3 +144,28 @@ export async function pingNative(
     requestId: reqId,
   });
 }
+
+/**
+ * Queries the diagnostic health report of the SQLite database.
+ * Used by native diagnostics and development audit tools.
+ */
+export async function getDatabaseHealth(requestId?: string): Promise<DatabaseHealthReport> {
+  const reqId = requestId || generateRequestId();
+
+  if (!isTauriContext()) {
+    return {
+      status: "Ready",
+      schemaVersion: 1,
+      migrationsApplied: 1,
+      integrityOk: true,
+      walEnabled: true,
+      databasePath: ":memory: (browser mock)",
+      latencyMs: 1,
+    };
+  }
+
+  return await safeInvoke<DatabaseHealthReport>(IPC_COMMANDS.GET_DATABASE_HEALTH, undefined, {
+    requestId: reqId,
+  });
+}
+

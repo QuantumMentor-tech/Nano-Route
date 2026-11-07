@@ -1,6 +1,6 @@
 # Nano Route Architecture
-**Document Version:** 1.9.0  
-**Step:** 11 of 50 — Rust Core Architecture & Application Service Layer  
+**Document Version:** 1.19.0  
+**Step:** 21 of 50 — Provider & Model Registry Foundation  
 **Date:** November 2026  
 **Status:** APPROVED ARCHITECTURAL SPECIFICATION  
 
@@ -12,7 +12,7 @@ Nano Route is a Windows-first local-first desktop AI orchestration system. The f
 The architecture enforces a strict three-tier hierarchy:
 1. **Frontend Presentation Tier (React + TypeScript):** Owns UI state, view rendering, user input validation, and user interactions. Operates in an untrusted context with zero access to plaintext credentials, raw SQL, or OS filesystem handles.
 2. **Tauri IPC Boundary:** Controlled, typed message bridge. Replaces ad-hoc IPC calls with a centralized frontend IPC service communicating with domain-scoped Rust commands and push-based token streaming events.
-3. **Rust Native Core Tier:** Owns native OS resources, Tokio multi-threaded async runtime, Windows DPAPI encryption at rest, embedded SQLite (WAL mode), local SLM inference engine (ONNX Runtime / DirectML or llama.cpp GGUF), unified provider abstraction, and multi-factor routing policies.
+3. **Rust Native Core Tier:** Owns native OS resources, Tokio multi-threaded async runtime, Windows DPAPI encryption at rest, embedded SQLite (WAL mode), local SLM inference engine (ONNX Runtime / DirectML or llama.cpp GGUF), canonical provider & model registry, unified provider abstraction, chat persistence, telemetry analytics ledger, secure credential vault, typed application settings, and multi-factor routing policies.
 
 ```text
 +-------------------------------------------------------------------------------+
@@ -21,28 +21,28 @@ The architecture enforces a strict three-tier hierarchy:
 
 [FRONTEND TIER - React 18 + TypeScript + Vite 5]
   app/ (App.tsx, shell orchestration) [EXISTING]
-  services/ipc/ (safeInvoke, centralized typed IPC client) [EXISTING]
+  services/ipc/ (safeInvoke, chat, telemetry, credentials, settings, registry, streaming, database, typed IPC client) [EXISTING]
   types/ (Shared domain & IPC contracts) [EXISTING]
   styles/ (Foundational dark CSS) [EXISTING]
-  components/ (Reusable visual primitives) [PLANNED - Step 6+]
-  features/ (Domain features: chat, routing, history, telemetry) [PLANNED - Steps 18-25]
+  components/ (Reusable visual primitives) [EXISTING - Step 6, 10]
+  features/ (Domain features: dashboard, future chat studio, history) [EXISTING/PLANNED]
 
-                                   │  Tauri IPC (Typed commands & SSE events)
+                                   │  Tauri IPC (Typed commands & Channels)
                                    ▼
 [NATIVE CORE TIER - Rust + Tauri v2]
-  commands/ (health, chat, keys, telemetry) [EXISTING: health; PLANNED: others]
-  core/ (High-level application orchestration) [PLANNED]
-  domain/ (Pure domain entities: Task, Model, Provider, Decision) [PLANNED]
-  errors/ (Unified domain error hierarchy) [PLANNED]
-  inference/ (Local SLM execution: ONNX / GGUF) [PLANNED - Steps 11-14]
+  commands/ (health, chat, telemetry, credentials, settings, registry, database, diagnostics, streaming) [IMPLEMENTED - Steps 11, 12, 15, 16, 17, 18, 19, 20, 21]
+  core/ (Composition root, TaskManager, application bootstrap) [IMPLEMENTED - Steps 11, 13]
+  domain/ (Pure domain entities: Health, AppInfo, ChatSession, ChatMessage, TelemetryRecord, EncryptedCredentialRecord, ProviderCredentialStatus, AppSettingsSnapshot, RoutingPreferenceMode) [IMPLEMENTED - Steps 11, 17, 18, 19, 20]
+  errors/ (Unified AppError hierarchy) [IMPLEMENTED - Steps 11, 17]
+  inference/ (Local SLM execution: ONNX / GGUF) [PLANNED - Steps 23-24]
   infrastructure/ (HTTP clients, Windows OS helpers) [PLANNED]
-  providers/ (Standardized Provider trait & adapters) [PLANNED - Steps 6-10]
-  routing/ (Multi-factor candidate scoring & fallback engine) [PLANNED - Steps 15-16]
-  security/ (Windows DPAPI Crypt32 encryption) [PLANNED - Step 5]
-  services/ (Application use-case orchestrators) [PLANNED]
-  state/ (Tauri-managed thread-safe application state) [PLANNED]
-  storage/ (SQLite WAL connection pool & repositories) [PLANNED - Step 4]
-  telemetry/ (Local-first latency, token & cost metrics) [PLANNED - Step 24]
+  providers/ (Canonical ProviderRegistry, catalog, descriptor, standardized ProviderClient trait, models, requests, responses, errors, health, mock test double) [IMPLEMENTED - Steps 14, 21]
+  routing/ (Multi-factor candidate scoring & fallback engine) [PLANNED - Steps 23-25]
+  security/ (Windows DPAPI Crypt32 encryption, in-memory zeroization SecretBytes/SecretString) [IMPLEMENTED - Step 19]
+  services/ (Application use-case orchestrators: HealthService, AppService, StreamCoordinator, ChatService, TelemetryService, CredentialVaultService, AppSettingsService, ProviderPreferencesService) [IMPLEMENTED - Steps 11, 15, 17, 18, 19, 20]
+  state/ (Tauri-managed thread-safe application state AppState with Arc<ProviderRegistry>) [IMPLEMENTED - Steps 11, 17, 18, 19, 20, 21]
+  storage/ (SQLite WAL connection, migrations, repositories: DatabaseManager, ChatSessionRepository, ChatMessageRepository, TelemetryRepository, CredentialRepository, AppSettingsRepository) [IMPLEMENTED - Steps 16, 17, 18, 19, 20]
+  telemetry/ (Local-first latency, token & cost metrics) [IMPLEMENTED - Step 18]
 
                                    │  Outbound HTTPS / Localhost HTTP
                                    ▼
@@ -142,6 +142,30 @@ Domain & Infrastructure
 
 ---
 
+### 1.4 Background Task & Async Execution Infrastructure (Step 13)
+Nano Route establishes a unified native task execution engine (`TaskManager`) to manage background workloads, concurrency limits, cooperative cancellation, and shutdown:
+
+```text
+Application Service
+      │
+      ▼
+ TaskManager (src-tauri/src/core/tasks/)
+      ├── Async execution (tokio::spawn)
+      ├── Blocking execution (tokio::task::spawn_blocking)
+      ├── Cancellation (CancellationToken hierarchical trees)
+      ├── Concurrency control (TaskConcurrencyLimiter)
+      └── Shutdown (bounded shutdown protocol)
+```
+
+#### Permanent Task Rules:
+1. **Never run blocking work directly on async workers:** Synchronous disk/CPU operations must be offloaded via `spawn_blocking`.
+2. **Never create unmanaged long-lived tasks:** Every task has an owner, unique `TaskId`, and registered lifecycle state.
+3. **Never assume `spawn_blocking` is hard-cancellable:** Cancellation of blocking threads is cooperative.
+4. **No unbounded CPU execution:** Compute workloads are governed by bounded semaphores (`DEFAULT_MAX_CPU_CONCURRENCY = 2`).
+5. **Automatic Registry Cleanup:** Active tasks are removed from the registry upon reaching terminal status (`Completed`, `Failed`, `Cancelled`) to guarantee zero memory leaks.
+
+---
+
 | Layer | Technology | Version / Specification | Status |
 |---|---|---|---|
 | **OS Platform** | Windows 10/11 x64 | Windows 10.0.26100+ | EXISTING |
@@ -184,6 +208,7 @@ d:\App Winrar Files\Nano Router SLM (Working)\
 │       ├── NANO_ROUTE_COMPONENT_LIBRARY.md
 │       ├── NANO_ROUTE_RUST_CORE.md
 │       ├── NANO_ROUTE_IPC.md
+│       ├── NANO_ROUTE_TASK_SYSTEM.md
 │       └── NANO_ROUTE_BUILD_STATUS.md
 │
 ├── src/                                # Frontend application source
@@ -309,9 +334,18 @@ d:\App Winrar Files\Nano Router SLM (Working)\
         │   ├── health.rs               # cmd_health_check, cmd_get_health
         │   ├── app.rs                  # cmd_get_app_info
         │   └── diagnostics.rs          # cmd_ping with input validation & request ID
-        ├── core/                       # Composition root & lifecycle (Step 11)
+        ├── core/                       # Composition root & background task system (Step 11 & 13)
         │   ├── mod.rs
-        │   └── application.rs          # Application bootstrap & dependency graph
+        │   ├── application.rs          # Application bootstrap & dependency graph
+        │   └── tasks/                  # Native TaskManager & concurrency subsystem (Step 13)
+        │       ├── mod.rs
+        │       ├── id.rs               # TaskId structured identifier generator
+        │       ├── types.rs            # TaskKind, TaskStatus, TaskMetadata
+        │       ├── cancellation.rs     # Cooperative CancellationToken hierarchy
+        │       ├── concurrency.rs      # TaskConcurrencyLimiter (bounded semaphores)
+        │       ├── handle.rs           # TaskHandle lifecycle wrapper
+        │       ├── registry.rs         # Active task registry & leak-free cleanup
+        │       └── manager.rs          # Central TaskManager coordinator
         ├── domain/                     # Pure domain models (Step 11)
         │   ├── mod.rs
         │   ├── health.rs               # SubsystemHealth, HealthReport, CoreStatus
@@ -572,5 +606,5 @@ Configuration ownership is strictly partitioned across specialized tooling:
 | **1.2.0** | November 2026 | Added Desktop Shell & Layout Hierarchy Specification (Step 7) | Senior Principal Desktop Application Architect |
 
 ---
-*End of Architecture Document. Source of Truth for Step 7.*
+*End of Architecture Document. Source of Truth for Step 21.*
 
