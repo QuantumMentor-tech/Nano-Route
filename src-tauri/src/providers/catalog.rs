@@ -40,7 +40,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
     )
     .with_documentation_url("https://platform.openai.com/docs")
     .with_default_model("gpt-4o")
-    .with_implementation_state(ProviderImplementationState::Planned);
+    .with_implementation_state(ProviderImplementationState::Implemented);
     providers.push(openai_desc);
 
     models.push(
@@ -137,7 +137,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
     )
     .with_documentation_url("https://docs.anthropic.com")
     .with_default_model("claude-3-5-sonnet-20241022")
-    .with_implementation_state(ProviderImplementationState::Planned);
+    .with_implementation_state(ProviderImplementationState::Implemented);
     providers.push(anthropic_desc);
 
     models.push(
@@ -210,7 +210,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
     )
     .with_documentation_url("https://ai.google.dev/docs")
     .with_default_model("gemini-1.5-pro")
-    .with_implementation_state(ProviderImplementationState::Planned);
+    .with_implementation_state(ProviderImplementationState::Implemented);
     providers.push(gemini_desc);
 
     models.push(
@@ -285,7 +285,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
     )
     .with_documentation_url("https://api-docs.deepseek.com")
     .with_default_model("deepseek-chat")
-    .with_implementation_state(ProviderImplementationState::Planned);
+    .with_implementation_state(ProviderImplementationState::Implemented);
     providers.push(deepseek_desc);
 
     models.push(
@@ -341,7 +341,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
     )
     .with_documentation_url("https://console.groq.com/docs")
     .with_default_model("llama-3.3-70b-versatile")
-    .with_implementation_state(ProviderImplementationState::Planned);
+    .with_implementation_state(ProviderImplementationState::Implemented);
     providers.push(groq_desc);
 
     models.push(
@@ -392,7 +392,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
     )
     .with_documentation_url("https://docs.mistral.ai")
     .with_default_model("mistral-large-latest")
-    .with_implementation_state(ProviderImplementationState::Planned);
+    .with_implementation_state(ProviderImplementationState::Implemented);
     providers.push(mistral_desc);
 
     models.push(

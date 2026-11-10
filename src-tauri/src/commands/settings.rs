@@ -99,10 +99,17 @@ pub async fn cmd_update_provider_preferences(
     input: UpdateProviderPreferencesInput,
     state: State<'_, AppState>,
 ) -> Result<ProviderCredentialStatus, String> {
-    state
+    let pid_str = input.provider_id.clone();
+    let res = state
         .provider_preferences
         .update_provider_preferences(input)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    if let Ok(pid) = crate::providers::identity::ProviderId::new(&pid_str) {
+        state.provider_health_manager.update_provider_enabled(&pid, res.is_active);
+    }
+
+    Ok(res)
 }
 
 /// Resets provider preferences to documented defaults while preserving credentials.
@@ -111,9 +118,15 @@ pub async fn cmd_reset_provider_preferences(
     provider_id: String,
     state: State<'_, AppState>,
 ) -> Result<ProviderCredentialStatus, String> {
-    state
+    let res = state
         .provider_preferences
         .reset_provider_preferences(&provider_id)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    if let Ok(pid) = crate::providers::identity::ProviderId::new(&provider_id) {
+        state.provider_health_manager.update_provider_enabled(&pid, res.is_active);
+    }
+
+    Ok(res)
 }
 

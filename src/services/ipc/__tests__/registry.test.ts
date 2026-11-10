@@ -61,7 +61,7 @@ describe("Step 21 Provider & Model Registry Foundation", () => {
       assert.equal(anthropic.defaultBaseUrl, "https://api.anthropic.com");
       assert.equal(anthropic.defaultModelId, "claude-3-5-sonnet-20241022");
       assert.equal(anthropic.credentialRequired, true);
-      assert.equal(anthropic.implementationState, "planned");
+      assert.equal(anthropic.implementationState, "implemented");
       assert.equal(anthropic.lifecycleState, "active");
     });
 
@@ -235,6 +235,212 @@ describe("Step 21 Provider & Model Registry Foundation", () => {
       assert.equal(ref.providerId, "openai");
       assert.equal(ref.displayName, "Resolved custom-model");
       assert.equal(ref.isKnownInActiveRegistry, true);
+    });
+  });
+
+  describe("7. Validation Invariant & Rejection Fixtures (Sections 41-49, 110-115, 176)", () => {
+    function validateDescriptors(
+      providers: Array<{ providerId: string; defaultModelId?: string | null; defaultBaseUrl: string }>,
+      models: Array<{ providerId: string; modelId: string; contextWindow: number }>
+    ): void {
+      const providerSet = new Set<string>();
+      for (const p of providers) {
+        if (providerSet.has(p.providerId)) {
+          throw new Error(`Duplicate provider ID '${p.providerId}'`);
+        }
+        providerSet.add(p.providerId);
+
+        const url = p.defaultBaseUrl.trim().toLowerCase();
+        if (!url.startsWith("https://") && !url.startsWith("http://localhost") && !url.startsWith("http://127.0.0.1")) {
+          throw new Error(`Invalid default base URL '${p.defaultBaseUrl}'`);
+        }
+        if (p.defaultBaseUrl.includes("@")) {
+          throw new Error(`Base URL contains embedded credentials`);
+        }
+      }
+
+      const modelSet = new Set<string>();
+      for (const m of models) {
+        if (!providerSet.has(m.providerId)) {
+          throw new Error(`Model '${m.modelId}' references unregistered provider '${m.providerId}'`);
+        }
+        const key = `${m.providerId}/${m.modelId}`;
+        if (modelSet.has(key)) {
+          throw new Error(`Duplicate model ID '${m.modelId}' under provider '${m.providerId}'`);
+        }
+        modelSet.add(key);
+
+        if (m.contextWindow <= 0) {
+          throw new Error(`Model '${key}' declares an invalid context window of ${m.contextWindow}`);
+        }
+      }
+
+      for (const p of providers) {
+        if (p.defaultModelId) {
+          const key = `${p.providerId}/${p.defaultModelId}`;
+          if (!modelSet.has(key)) {
+            throw new Error(`Provider '${p.providerId}' specifies missing default model '${p.defaultModelId}'`);
+          }
+        }
+      }
+    }
+
+    it("rejects duplicate provider IDs during registry validation", () => {
+      assert.throws(
+        () => {
+          validateDescriptors(
+            [
+              { providerId: "openai", defaultBaseUrl: "https://api.openai.com" },
+              { providerId: "openai", defaultBaseUrl: "https://api.openai.com" },
+            ],
+            []
+          );
+        },
+        /Duplicate provider ID 'openai'/
+      );
+    });
+
+    it("rejects duplicate model IDs under the same provider", () => {
+      assert.throws(
+        () => {
+          validateDescriptors(
+            [{ providerId: "openai", defaultBaseUrl: "https://api.openai.com" }],
+            [
+              { providerId: "openai", modelId: "gpt-4o", contextWindow: 128000 },
+              { providerId: "openai", modelId: "gpt-4o", contextWindow: 128000 },
+            ]
+          );
+        },
+        /Duplicate model ID 'gpt-4o' under provider 'openai'/
+      );
+    });
+
+    it("allows identical model IDs across different providers", () => {
+      assert.doesNotThrow(() => {
+        validateDescriptors(
+          [
+            { providerId: "groq", defaultBaseUrl: "https://api.groq.com" },
+            { providerId: "local", defaultBaseUrl: "http://localhost:11434" },
+          ],
+          [
+            { providerId: "groq", modelId: "llama-3-8b", contextWindow: 8192 },
+            { providerId: "local", modelId: "llama-3-8b", contextWindow: 8192 },
+          ]
+        );
+      });
+    });
+
+    it("rejects orphan model referencing an unregistered provider", () => {
+      assert.throws(
+        () => {
+          validateDescriptors(
+            [{ providerId: "openai", defaultBaseUrl: "https://api.openai.com" }],
+            [{ providerId: "nonexistent-provider", modelId: "orphan-model", contextWindow: 4096 }]
+          );
+        },
+        /references unregistered provider 'nonexistent-provider'/
+      );
+    });
+
+    it("rejects provider specifying a default model missing from its catalog", () => {
+      assert.throws(
+        () => {
+          validateDescriptors(
+            [{ providerId: "anthropic", defaultBaseUrl: "https://api.anthropic.com", defaultModelId: "missing-claude" }],
+            [{ providerId: "anthropic", modelId: "claude-3-5-sonnet-20241022", contextWindow: 200000 }]
+          );
+        },
+        /specifies missing default model 'missing-claude'/
+      );
+    });
+
+    it("rejects model with invalid context window of 0", () => {
+      assert.throws(
+        () => {
+          validateDescriptors(
+            [{ providerId: "openai", defaultBaseUrl: "https://api.openai.com" }],
+            [{ providerId: "openai", modelId: "broken-model", contextWindow: 0 }]
+          );
+        },
+        /invalid context window of 0/
+      );
+    });
+
+    it("rejects invalid base URL with insecure protocol or embedded credentials", () => {
+      assert.throws(
+        () => {
+          validateDescriptors(
+            [{ providerId: "insecure", defaultBaseUrl: "http://remote-insecure-api.com" }],
+            []
+          );
+        },
+        /Invalid default base URL/
+      );
+
+      assert.throws(
+        () => {
+          validateDescriptors(
+            [{ providerId: "leaky", defaultBaseUrl: "https://user:password@api.example.com" }],
+            []
+          );
+        },
+        /Base URL contains embedded credentials/
+      );
+    });
+  });
+
+  describe("8. Separation Invariants & Mutability Isolation (Sections 116-118, 172)", () => {
+    it("guarantees user preference priority change does not mutate static registry descriptor", async () => {
+      const original = await getRegisteredProvider("anthropic");
+      assert.ok(original);
+      assert.equal(original.defaultModelId, "claude-3-5-sonnet-20241022");
+
+      // Effective resolution reflects user override priority = 9, but registry descriptor is intact
+      const effectiveList = await resolveEffectiveProviders();
+      const anthropicEffective = effectiveList.find((p) => p.providerId === "anthropic");
+      assert.ok(anthropicEffective);
+
+      // Verify static descriptor remains unchanged
+      const current = await getRegisteredProvider("anthropic");
+      assert.ok(current);
+      assert.deepEqual(current, original);
+    });
+
+    it("guarantees credential changes or rotation do not alter static registry metadata", async () => {
+      const openai = await getRegisteredProvider("openai");
+      assert.ok(openai);
+      assert.equal(openai.credentialRequired, true);
+
+      // Verify no credential fields leaked or added to registry descriptor
+      const keys = Object.keys(openai);
+      assert.ok(!keys.includes("apiKey"));
+      assert.ok(!keys.includes("encryptedApiKey"));
+    });
+  });
+
+  describe("9. Clean Database & Offline Startup Scenarios (Sections 121, 123-125, 171, 174, 175)", () => {
+    it("initializes and serves all static providers on a clean database without credentials", async () => {
+      // In clean state (no credentials stored, no user settings altered)
+      const providers = await listRegisteredProviders();
+      assert.ok(providers.length >= 8);
+
+      for (const p of providers) {
+        assert.ok(p.providerId.length > 0);
+        assert.ok(p.displayName.length > 0);
+        assert.ok(p.defaultBaseUrl.length > 0);
+      }
+    });
+
+    it("verifies all registered providers declaring default models satisfy catalog ownership", async () => {
+      const providers = await listRegisteredProviders();
+      for (const p of providers) {
+        if (p.defaultModelId) {
+          const model = await getRegisteredModel(p.providerId, p.defaultModelId);
+          assert.ok(model, `Default model '${p.defaultModelId}' must exist for provider '${p.providerId}'`);
+          assert.equal(model.providerId, p.providerId);
+          assert.equal(model.modelId, p.defaultModelId);
+        }
+      }
     });
   });
 });

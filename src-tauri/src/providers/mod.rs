@@ -9,32 +9,65 @@
 // - Must NOT define routing decisions or persist API keys directly.
 // ============================================================================
 
+pub mod anthropic;
 pub mod capabilities;
+pub mod capability_service;
 pub mod client;
 pub mod catalog;
+pub mod deepseek;
 pub mod descriptor;
 pub mod errors;
+pub mod gemini;
+pub mod groq;
 pub mod health;
+pub mod health_manager;
+pub mod health_types;
 pub mod identity;
+pub mod mistral;
 pub mod mock;
 pub mod models;
+pub mod openai;
+pub mod preflight;
+pub mod probe;
 pub mod registry;
 pub mod request;
 pub mod response;
+pub mod shared;
+
+#[cfg(test)]
+pub mod health_tests;
 
 // Primary re-exports for service layers and consumers
+pub use anthropic::AnthropicClient;
 pub use capabilities::{ProviderCapabilities, ProviderCapability};
+pub use capability_service::{
+    AdapterCapabilities, CapabilityEvaluationResult, ProviderCapabilityService, RequestRequirements,
+};
 pub use catalog::builtin_catalog;
 pub use client::{ProviderClient, ProviderMetadata};
+pub use deepseek::DeepSeekClient;
 pub use descriptor::{
     EffectiveProviderDescriptor, HistoricalModelReference, ProviderDescriptor,
     ProviderImplementationState, ProviderLifecycleState,
 };
 pub use errors::{ProviderError, ProviderErrorKind};
+pub use gemini::GeminiClient;
+pub use groq::GroqClient;
 pub use health::{ProviderHealth, ProviderHealthReport};
+pub use health_manager::{current_time_ms, ProviderHealthManager, DEFAULT_HEALTH_FRESHNESS_TTL_MS};
+pub use health_types::{
+    HealthObservationOutcome, HealthObservationSource, ModelHealthSnapshot,
+    ProviderHealthObservation, ProviderHealthSnapshot, RateLimitInfo, RuntimeHealthState,
+};
 pub use identity::ProviderId;
+pub use mistral::MistralClient;
 pub use mock::{MockProviderClient, MockProviderDynamicConfig};
 pub use models::{ModelAvailability, ModelPricing, ProviderModel};
+pub use openai::OpenAiClient;
+pub use preflight::{PreflightBlockReason, PreflightEvaluation, PreflightEvaluator};
+pub use probe::{
+    DefaultHealthProbeRunner, HealthCheckResult, HealthProbeRunner, ProviderHealthProbeService,
+};
 pub use registry::ProviderRegistry;
 pub use request::{ChatMessage, GenerationParams, MessageRole, ProviderRequest, RequestMetadata, ToolDefinition};
 pub use response::{ProviderFinishReason, ProviderResponse, ProviderUsage, ResponseMetadata};

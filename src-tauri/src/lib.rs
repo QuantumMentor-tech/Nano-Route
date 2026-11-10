@@ -1,6 +1,8 @@
 // Nano Route — Native Core Library Entry Point
 
+pub mod analysis;
 pub mod commands;
+pub mod classification;
 pub mod core;
 pub mod domain;
 pub mod errors;
@@ -64,6 +66,32 @@ pub fn run() {
             commands::cmd_get_registered_model,
             commands::cmd_resolve_effective_providers,
             commands::cmd_resolve_historical_model,
+            commands::cmd_get_provider_health,
+            commands::cmd_get_all_provider_health,
+            commands::cmd_get_provider_capabilities,
+            commands::cmd_get_model_capabilities,
+            commands::cmd_preflight_provider_request,
+            commands::cmd_check_provider_health,
+            commands::cmd_get_local_runtime_status,
+            commands::cmd_get_local_model_status,
+            commands::cmd_initialize_local_runtime,
+            commands::cmd_load_router_model,
+            commands::cmd_unload_router_model,
+            commands::cmd_get_local_runtime_metrics,
+            commands::cmd_run_local_inference,
+            commands::cmd_classify_intent,
+            commands::cmd_get_classifier_status,
+            commands::cmd_evaluate_classifier,
+            commands::cmd_analyze_task,
+            commands::cmd_get_task_analyzer_status,
+            commands::cmd_score_routing_candidates,
+            commands::cmd_get_routing_scoring_status,
+            commands::cmd_get_scoring_weights,
+            commands::cmd_update_scoring_weights,
+            commands::cmd_evaluate_routing_policy,
+            commands::cmd_get_routing_policy_config,
+            commands::cmd_update_routing_policy_config,
+            commands::cmd_validate_manual_override,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

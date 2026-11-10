@@ -171,18 +171,19 @@ impl ProviderRequest {
     pub fn validate(&self) -> Result<(), ProviderError> {
         let trimmed_model = self.model.trim();
         if trimmed_model.is_empty() {
-            return Err(ProviderError::invalid_request("Target model identifier cannot be empty"));
+            return Err(ProviderError::invalid_request(None, "Target model identifier cannot be empty"));
         }
 
         if self.messages.is_empty() {
             return Err(ProviderError::invalid_request(
+                None,
                 "ProviderRequest must contain at least one chat message",
             ));
         }
 
         if let Some(temp) = self.params.temperature {
             if !(0.0..=2.0).contains(&temp) {
-                return Err(ProviderError::invalid_request(format!(
+                return Err(ProviderError::invalid_request(None, format!(
                     "Temperature must be between 0.0 and 2.0 (got {})",
                     temp
                 )));

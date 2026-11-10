@@ -165,6 +165,32 @@ export const IPC_COMMANDS = {
   GET_REGISTERED_MODEL: "cmd_get_registered_model",
   RESOLVE_EFFECTIVE_PROVIDERS: "cmd_resolve_effective_providers",
   RESOLVE_HISTORICAL_MODEL: "cmd_resolve_historical_model",
+  GET_PROVIDER_HEALTH: "cmd_get_provider_health",
+  GET_ALL_PROVIDER_HEALTH: "cmd_get_all_provider_health",
+  GET_PROVIDER_CAPABILITIES: "cmd_get_provider_capabilities",
+  GET_MODEL_CAPABILITIES: "cmd_get_model_capabilities",
+  PREFLIGHT_PROVIDER_REQUEST: "cmd_preflight_provider_request",
+  CHECK_PROVIDER_HEALTH: "cmd_check_provider_health",
+  GET_LOCAL_RUNTIME_STATUS: "cmd_get_local_runtime_status",
+  GET_LOCAL_MODEL_STATUS: "cmd_get_local_model_status",
+  INITIALIZE_LOCAL_RUNTIME: "cmd_initialize_local_runtime",
+  LOAD_ROUTER_MODEL: "cmd_load_router_model",
+  UNLOAD_ROUTER_MODEL: "cmd_unload_router_model",
+  GET_LOCAL_RUNTIME_METRICS: "cmd_get_local_runtime_metrics",
+  RUN_LOCAL_INFERENCE: "cmd_run_local_inference",
+  CLASSIFY_INTENT: "cmd_classify_intent",
+  GET_CLASSIFIER_STATUS: "cmd_get_classifier_status",
+  EVALUATE_CLASSIFIER: "cmd_evaluate_classifier",
+  ANALYZE_TASK: "cmd_analyze_task",
+  GET_TASK_ANALYZER_STATUS: "cmd_get_task_analyzer_status",
+  SCORE_ROUTING_CANDIDATES: "cmd_score_routing_candidates",
+  GET_ROUTING_SCORING_STATUS: "cmd_get_routing_scoring_status",
+  GET_SCORING_WEIGHTS: "cmd_get_scoring_weights",
+  UPDATE_SCORING_WEIGHTS: "cmd_update_scoring_weights",
+  EVALUATE_ROUTING_POLICY: "cmd_evaluate_routing_policy",
+  GET_ROUTING_POLICY_CONFIG: "cmd_get_routing_policy_config",
+  UPDATE_ROUTING_POLICY_CONFIG: "cmd_update_routing_policy_config",
+  VALIDATE_MANUAL_OVERRIDE: "cmd_validate_manual_override",
 } as const;
 
 export type IpcCommandName = (typeof IPC_COMMANDS)[keyof typeof IPC_COMMANDS];
@@ -262,6 +288,10 @@ export type ProviderCapability =
   | "audio_output"
   | "token_log_probs"
   | "custom_stop_sequences";
+
+export interface ProviderCapabilitiesDto {
+  capabilities: ProviderCapability[];
+}
 
 export type ModelAvailability =
   | "Available"
@@ -777,6 +807,640 @@ export interface HistoricalModelDto {
   displayName: string;
   isKnownInActiveRegistry: boolean;
 }
+
+// ============================================================================
+// --- Provider Runtime Health & Capability Intelligence Contracts (Step 25) ---
+// ============================================================================
+
+export type RuntimeHealthState =
+  | "unknown"
+  | "ready"
+  | "degraded"
+  | "rate_limited"
+  | "authentication_failed"
+  | "authorization_failed"
+  | "provider_unavailable"
+  | "endpoint_misconfigured"
+  | "credential_missing"
+  | "provider_disabled"
+  | "model_unavailable"
+  | "request_rejected"
+  | "ready_pending_verification"
+  | "stale";
+
+export interface RateLimitInfoDto {
+  isLimited: boolean;
+  retryAfterAtMs?: number | null;
+  remainingRequests?: number | null;
+  remainingTokens?: number | null;
+  resetRequestsAtMs?: number | null;
+  resetTokensAtMs?: number | null;
+}
+
+export interface ModelHealthSnapshotDto {
+  providerId: string;
+  modelId: string;
+  state: RuntimeHealthState;
+  lastObservedAtMs?: number | null;
+  lastSuccessAtMs?: number | null;
+  lastFailureAtMs?: number | null;
+  lastErrorCategory?: string | null;
+}
+
+export interface ProviderHealthSnapshotDto {
+  providerId: string;
+  displayName: string;
+  state: RuntimeHealthState;
+  isEnabled: boolean;
+  isCredentialConfigured: boolean;
+  isAdapterImplemented: boolean;
+  reasonCode?: string | null;
+  lastObservedAtMs?: number | null;
+  lastSuccessAtMs?: number | null;
+  lastFailureAtMs?: number | null;
+  lastLatencyMs?: number | null;
+  lastHttpStatus?: number | null;
+  lastProviderRequestId?: string | null;
+  rateLimitInfo: RateLimitInfoDto;
+  models: ModelHealthSnapshotDto[];
+}
+
+export interface RequestRequirementsDto {
+  requiresText?: boolean;
+  requiresStreaming?: boolean;
+  requiresSystemMessages?: boolean;
+  requiresTools?: boolean;
+  requiresVision?: boolean;
+  requiresAudio?: boolean;
+  requiresStructuredOutput?: boolean;
+  requiredContextTokens?: number | null;
+}
+
+export type PreflightBlockReason =
+  | "provider_not_found"
+  | "adapter_not_implemented"
+  | "provider_disabled"
+  | "credential_missing"
+  | "endpoint_misconfigured"
+  | "model_not_found"
+  | "model_retired_or_unavailable"
+  | "capability_unsupported"
+  | "context_length_exceeded"
+  | "authentication_failed"
+  | "rate_limited"
+  | "provider_unavailable"
+  | "model_runtime_unavailable";
+
+export interface PreflightEvaluationDto {
+  allowed: boolean;
+  blockReason?: PreflightBlockReason | null;
+  message: string;
+  evaluatedAtMs: number;
+}
+
+export interface CheckProviderHealthResultDto {
+  providerId: string;
+  modelId?: string | null;
+  status: RuntimeHealthState;
+  latencyMs?: number | null;
+  httpStatus?: number | null;
+  errorCategory?: string | null;
+  checkedAtMs: number;
+}
+
+// ============================================================================
+// --- Local SLM Runtime & On-Device Inference Engine Contracts (Step 26) ---
+// ============================================================================
+
+export type LocalRuntimeState =
+  | "uninitialized"
+  | "initializing"
+  | "ready"
+  | "loading_model"
+  | "running"
+  | "unloading"
+  | "failed"
+  | "shutting_down";
+
+export type LocalModelStatus =
+  | "not_installed"
+  | "not_loaded"
+  | "loaded"
+  | "integrity_failed"
+  | "load_failed";
+
+export type InferenceBackendType = "onnx" | "gguf" | "mock";
+export type ExecutionProviderType = "cpu" | "direct_ml" | "cuda" | "simulated";
+
+export interface LocalRuntimeStatusDto {
+  state: LocalRuntimeState;
+  backend: InferenceBackendType;
+  executionProvider: ExecutionProviderType;
+  modelId?: string | null;
+  modelVersion?: string | null;
+  modelStatus: LocalModelStatus;
+  runtimeVersion: string;
+  isBusy: boolean;
+  queueDepth: number;
+  lastInferenceAtMs?: number | null;
+  lastLatencyMs?: number | null;
+  lastError?: string | null;
+}
+
+export interface LocalRuntimeMetricsDto {
+  totalInferences: number;
+  successfulInferences: number;
+  failedInferences: number;
+  cancelledInferences: number;
+  lastTokenizationMs: number;
+  lastQueueWaitMs: number;
+  lastInferenceMs: number;
+  lastTotalMs: number;
+  lastInputTokens: number;
+  averageInferenceMs: number;
+  coldLoadMs?: number | null;
+}
+
+export interface LocalInferenceResultDto {
+  requestId: string;
+  modelId: string;
+  outputShape: number[];
+  logitsPreview: number[];
+  latencyMs: number;
+  tokenCount: number;
+}
+
+// ============================================================================
+// --- Step 27 Intent Classifier Subsystem Contracts ---
+// ============================================================================
+
+export type UserIntent =
+  | "software_engineering"
+  | "code_debugging"
+  | "reasoning_math"
+  | "general_conversation"
+  | "research_retrieval"
+  | "writing"
+  | "data_analysis"
+  | "translation"
+  | "summarization"
+  | "creative_generation"
+  | "other"
+  | "unknown";
+
+export type AmbiguityState =
+  | "not_ambiguous"
+  | "ambiguous"
+  | "multi_intent"
+  | "unknown";
+
+export type ClassifierAvailability =
+  | "available"
+  | "not_installed"
+  | "model_invalid"
+  | "runtime_unavailable"
+  | "model_incompatible"
+  | "failed";
+
+export interface IntentCandidateDto {
+  intent: UserIntent;
+  normalizedScore: number;
+  rawScore: number;
+}
+
+export interface IntentClassificationRequestDto {
+  requestId?: string;
+  text: string;
+  conversationContext?: string[];
+  languageHint?: string;
+}
+
+export interface IntentClassificationResultDto {
+  requestId: string;
+  primaryIntent: UserIntent;
+  confidence: number;
+  alternatives: IntentCandidateDto[];
+  ambiguity: AmbiguityState;
+  classifierModelId: string;
+  classifierModelVersion: string;
+  classifierSchemaVersion: string;
+  inferenceLatencyMs: number;
+  totalLatencyMs: number;
+  explanation: string;
+}
+
+export interface ClassifierStatusDto {
+  availability: ClassifierAvailability;
+  modelId: string | null;
+  modelVersion: string | null;
+  schemaVersion: string;
+  supportedIntents: UserIntent[];
+  runtimeState: LocalRuntimeState;
+  lastLatencyMs: number | null;
+  lastError: string | null;
+}
+
+export interface ClassifierEvalReportDto {
+  datasetVersion: string;
+  totalSamples: number;
+  correctPrimaryCount: number;
+  accuracyPercentage: number;
+  ambiguityCount: number;
+  multiIntentCount: number;
+  unknownCount: number;
+  averageLatencyMs: number;
+  p95LatencyMs: number;
+}
+
+// ============================================================================
+// --- Step 28 Task Analysis Subsystem Contracts ---
+// ============================================================================
+
+export type TaskComplexity =
+  | "trivial"
+  | "low"
+  | "moderate"
+  | "high"
+  | "very_high"
+  | "unknown";
+
+export type TaskDomain =
+  | "software_engineering"
+  | "mathematics"
+  | "research"
+  | "long_form_writing"
+  | "business"
+  | "data_analysis"
+  | "education"
+  | "translation"
+  | "planning"
+  | "technical_documentation"
+  | "creative"
+  | "general"
+  | "other"
+  | "unknown";
+
+export type AnalysisSource =
+  | "model"
+  | "explicit_user_requirement"
+  | "strong_structural_signal"
+  | "heuristic"
+  | "derived"
+  | "unknown";
+
+export type TaskCapabilityRequirement =
+  | "text_generation"
+  | "long_context"
+  | "multi_turn_context"
+  | "code_understanding"
+  | "code_generation"
+  | "mathematical_reasoning"
+  | "deep_reasoning"
+  | "structured_output"
+  | "document_analysis"
+  | "large_document_ingestion"
+  | "web_retrieval"
+  | "image_input"
+  | "audio_input"
+  | "video_input"
+  | "tool_calling"
+  | "file_handling"
+  | "citation_support"
+  | "search_grounding"
+  | "translation"
+  | "summarization";
+
+export type RequirementStrength =
+  | "required"
+  | "preferred"
+  | "not_required"
+  | "unknown";
+
+export interface TaskCapabilityAssessmentDto {
+  capability: TaskCapabilityRequirement;
+  strength: RequirementStrength;
+  confidence: number;
+  source: AnalysisSource;
+  reasonCode: string;
+}
+
+export interface DomainCandidateDto {
+  domain: TaskDomain;
+  confidence: number;
+  source: AnalysisSource;
+}
+
+export interface AnalysisEvidenceDto {
+  code: string;
+  description: string;
+  source: AnalysisSource;
+  weight: number;
+}
+
+export interface AnalysisConflictDto {
+  dimension: string;
+  modelSignal: string | null;
+  explicitSignal: string;
+  resolution: string;
+}
+
+export type AnalysisCompleteness =
+  | "complete"
+  | "partial"
+  | "uncertain"
+  | "failed";
+
+export type AnalysisAmbiguity = "low" | "medium" | "high" | "unknown";
+
+export interface ComplexityAnalysisDto {
+  level: TaskComplexity;
+  confidence: number;
+  source: AnalysisSource;
+  score: number;
+  evidenceCodes: string[];
+}
+
+export interface IntentSummaryDto {
+  primaryIntent: UserIntent;
+  confidence: number;
+  ambiguity: AmbiguityState;
+  secondaryIntents: UserIntent[];
+}
+
+export interface TaskAnalysisRequestDto {
+  requestId?: string;
+  text: string;
+  conversationContext?: string[];
+  attachmentCount?: number;
+  languageHint?: string;
+}
+
+export interface TaskAnalysisResultDto {
+  requestId: string;
+  intent: IntentSummaryDto;
+  complexity: ComplexityAnalysisDto;
+  primaryDomain: DomainCandidateDto;
+  secondaryDomains: DomainCandidateDto[];
+  capabilities: TaskCapabilityAssessmentDto[];
+  evidence: AnalysisEvidenceDto[];
+  conflicts: AnalysisConflictDto[];
+  ambiguity: AnalysisAmbiguity;
+  completeness: AnalysisCompleteness;
+  analyzerModelId: string;
+  analyzerModelVersion: string;
+  analysisSchemaVersion: string;
+  inferenceLatencyMs: number;
+  totalLatencyMs: number;
+  explanation: string;
+}
+
+export interface TaskAnalyzerStatusDto {
+  isAvailable: boolean;
+  modelId: string | null;
+  modelVersion: string | null;
+  schemaVersion: string;
+  supportedDomains: TaskDomain[];
+  supportedCapabilities: TaskCapabilityRequirement[];
+  lastLatencyMs: number | null;
+  lastError: string | null;
+}
+
+// --- Step 29: Routing Scoring DTOs ---
+
+export type IneligibilityReasonDto =
+  | { provider_not_found: { provider_id: string } }
+  | { adapter_not_implemented: { provider_id: string } }
+  | { provider_disabled: { provider_id: string } }
+  | { credential_missing: { provider_id: string } }
+  | { endpoint_misconfigured: { message: string } }
+  | { model_not_found: { model_id: string } }
+  | { model_retired_or_unavailable: { model_id: string } }
+  | { missing_required_capability: { capability: string } }
+  | { context_length_exceeded: { requested: number; limit: number } }
+  | { authentication_failed: { provider_id: string } }
+  | { rate_limited: { provider_id: string; retry_after_ms: number | null } }
+  | { provider_unavailable: { provider_id: string } }
+  | { model_runtime_unavailable: { model_id: string } }
+  | { preflight_blocked: { reason: string } }
+  | { explicitly_excluded: { reason: string } };
+
+export interface ScoreBreakdownDto {
+  intent_fit: number;
+  complexity_fit: number;
+  domain_fit: number;
+  capability_fit: number;
+  context_fit: number;
+  modality_fit: number;
+  preference_fit: number;
+  cost_fit: number;
+  latency_fit: number;
+  reliability_fit: number;
+  profile_fit: number;
+}
+
+export interface ScoreAdjustmentDto {
+  dimension: string;
+  delta: number;
+  reason: string;
+}
+
+export interface CandidateScoreDto {
+  provider_id: string;
+  model_id: string;
+  display_name: string;
+  is_eligible: boolean;
+  ineligibility_reasons: IneligibilityReasonDto[];
+  total_score: number | null;
+  breakdown: ScoreBreakdownDto | null;
+  adjustments: ScoreAdjustmentDto[];
+  explanation: string;
+  context_window: number;
+  pricing_known: boolean;
+  latency_known: boolean;
+}
+
+export interface RoutingScoringWeightsDto {
+  intent_weight: number;
+  complexity_weight: number;
+  domain_weight: number;
+  capability_weight: number;
+  context_weight: number;
+  modality_weight: number;
+  preference_weight: number;
+  cost_weight: number;
+  latency_weight: number;
+  reliability_weight: number;
+  profile_weight: number;
+}
+
+export interface RoutingScoreRequestDto {
+  request_id?: string;
+  task_analysis: TaskAnalysisResultDto;
+  required_capabilities_override?: string[];
+  preferred_providers?: string[];
+  estimated_input_tokens?: number;
+  estimated_output_tokens?: number;
+  max_candidates?: number;
+}
+
+export interface RoutingScoreResultDto {
+  request_id: string;
+  candidates: CandidateScoreDto[];
+  eligible_count: number;
+  ineligible_count: number;
+  evaluated_candidates_count: number;
+  weights_applied: RoutingScoringWeightsDto;
+  scoring_latency_ms: number;
+  explanation_summary: string;
+}
+
+export interface RoutingScoringStatusDto {
+  is_available: boolean;
+  registered_models_count: number;
+  configured_profiles_count: number;
+  active_weights: RoutingScoringWeightsDto;
+  last_scoring_latency_ms: number | null;
+}
+
+// --- Step 30: Routing Policy Contracts ---
+
+export type SelectionMode =
+  | "automatic"
+  | "manual_override"
+  | "no_route_available"
+  | "override_rejected"
+  | "blocked";
+
+export type OverrideState =
+  | "none"
+  | "requested"
+  | "validated"
+  | "accepted"
+  | "rejected";
+
+export type CandidateSelectionStatus =
+  | "selected_primary"
+  | "eligible_fallback"
+  | "disqualified_hard_constraint"
+  | "filtered_policy_threshold"
+  | "override_rejected_conflict";
+
+export interface ManualRouteOverrideDto {
+  provider_id: string;
+  model_id: string;
+  enabled: boolean;
+  reason?: string;
+}
+
+export interface OverrideValidationResultDto {
+  is_valid: boolean;
+  rejection_reason?: unknown;
+  message: string;
+}
+
+export interface SelectedRouteCandidateDto {
+  provider_id: string;
+  model_id: string;
+  display_name: string;
+  score: number | null;
+  selection_margin: number | null;
+  context_window: number;
+}
+
+export interface FallbackCandidateDto {
+  rank: number;
+  provider_id: string;
+  model_id: string;
+  display_name: string;
+  score: number;
+  reason: string;
+}
+
+export interface RankedCandidateDto {
+  rank: number;
+  provider_id: string;
+  model_id: string;
+  display_name: string;
+  score: number | null;
+  status: CandidateSelectionStatus;
+  rejection_reasons: string[];
+}
+
+export interface RoutingDecisionExplanationDto {
+  mode: SelectionMode;
+  summary: string;
+  primary_reason: string;
+  score_reason?: string | null;
+  policy_reason?: string | null;
+  override_reason?: string | null;
+  eligibility_reason?: string | null;
+  fallback_reason?: string | null;
+}
+
+export interface RoutingConfidenceMetadataDto {
+  slm_analysis_confidence: number | null;
+  selected_score: number | null;
+  selection_margin: number | null;
+  is_ambiguous: boolean;
+}
+
+export interface RoutingPolicyDiagnosticsDto {
+  total_candidates_evaluated: number;
+  eligible_candidates_count: number;
+  policy_filtered_count: number;
+  decision_duration_ms: number;
+  policy_version: string;
+}
+
+export interface OverrideResolutionDto {
+  requested_provider_id: string;
+  requested_model_id: string;
+  state: OverrideState;
+  reason: string;
+}
+
+export interface RoutingDecisionDto {
+  decision_id: string;
+  request_id: string;
+  policy_version: string;
+  scoring_algorithm_version: string;
+  selection_mode: SelectionMode;
+  selected_candidate: SelectedRouteCandidateDto | null;
+  fallback_candidates: FallbackCandidateDto[];
+  candidate_ranking: RankedCandidateDto[];
+  decision_reason: string;
+  structured_explanation: RoutingDecisionExplanationDto;
+  override_metadata: OverrideResolutionDto | null;
+  confidence_metadata: RoutingConfidenceMetadataDto;
+  diagnostics: RoutingPolicyDiagnosticsDto;
+  generated_at_ms: number;
+}
+
+export interface RoutingPolicyConfigDto {
+  policy_version: string;
+  minimum_accepted_score: number;
+  tie_tolerance: number;
+  max_fallback_candidates: number;
+  allow_degraded_providers: boolean;
+  enforce_strict_override_capabilities: boolean;
+  preference_profile: RoutingPreferenceMode;
+  fallback_on_rejected_override: boolean;
+}
+
+export interface RoutingPolicyRequestDto {
+  request_id?: string;
+  scoring_result?: RoutingScoreResultDto;
+  task_analysis?: TaskAnalysisResultDto;
+  manual_override?: ManualRouteOverrideDto;
+  estimated_input_tokens?: number;
+  estimated_output_tokens?: number;
+}
+
+
+
+
+
+
 
 
 

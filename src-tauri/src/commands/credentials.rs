@@ -17,10 +17,18 @@ pub async fn cmd_save_provider_credential(
     input: SaveCredentialInput,
     state: State<'_, AppState>,
 ) -> Result<ProviderCredentialStatus, String> {
-    state
+    let pid_str = input.provider_id.clone();
+    let res = state
         .credential_vault
         .save_credential(input)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    if let Ok(pid) = crate::providers::identity::ProviderId::new(&pid_str) {
+        state.provider_health_manager.update_credential_status(&pid, res.is_configured);
+        state.provider_health_manager.update_provider_enabled(&pid, res.is_active);
+    }
+
+    Ok(res)
 }
 
 /// Retrieves non-secret credential configuration status for a provider.
@@ -53,10 +61,16 @@ pub async fn cmd_set_provider_active(
     is_active: bool,
     state: State<'_, AppState>,
 ) -> Result<ProviderCredentialStatus, String> {
-    state
+    let res = state
         .credential_vault
         .set_provider_active(&provider_id, is_active)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    if let Ok(pid) = crate::providers::identity::ProviderId::new(&provider_id) {
+        state.provider_health_manager.update_provider_enabled(&pid, is_active);
+    }
+
+    Ok(res)
 }
 
 /// Deletes a provider credential and its associated preferences.
@@ -65,9 +79,19 @@ pub async fn cmd_delete_provider_credential(
     provider_id: String,
     state: State<'_, AppState>,
 ) -> Result<bool, String> {
-    state
+    let res = state
         .credential_vault
         .delete_credential(&provider_id)
+        .map_err(|e| e.to_string())?;
+
+    if res {
+        if let Ok(pid) = crate::providers::identity::ProviderId::new(&provider_id) {
+            state.provider_health_manager.update_credential_status(&pid, false);
+        }
+    }
+
+    Ok(res)
+}
         .map_err(|e| e.to_string())
 }
 

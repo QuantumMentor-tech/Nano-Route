@@ -38,6 +38,55 @@ impl Application {
                 .map_err(|e| AppError::InitializationFailed(format!("Failed to initialize provider registry: {}", e)))?,
         );
 
+        // Initialize Step 25 Provider Health Manager & Capability Intelligence
+        let provider_health_manager = Arc::new(crate::providers::ProviderHealthManager::new(&provider_registry));
+        let provider_capability_service = Arc::new(crate::providers::ProviderCapabilityService::new(provider_registry.clone()));
+        let preflight_evaluator = Arc::new(crate::providers::PreflightEvaluator::new(
+            provider_registry.clone(),
+            provider_capability_service.clone(),
+            provider_health_manager.clone(),
+        ));
+        let provider_health_probe = Arc::new(crate::providers::ProviderHealthProbeService::new(
+            provider_registry.clone(),
+            provider_health_manager.clone(),
+        ));
+
+        // Initialize Step 26 Local SLM Runtime Service (lazy model lifecycle)
+        let local_slm_service = Arc::new(crate::inference::LocalSlmService::new());
+
+        // Initialize Step 27 Local Intent Classifier Service
+        let intent_classifier = Arc::new(crate::classification::IntentClassifier::new(
+            local_slm_service.clone(),
+            Some(telemetry_service.clone()),
+        ));
+
+        // Initialize Step 28 Task Analyzer Engine
+        let task_analyzer = Arc::new(crate::analysis::TaskAnalyzer::new(
+            intent_classifier.clone(),
+            local_slm_service.clone(),
+            Some(telemetry_service.clone()),
+        ));
+
+        // Initialize Step 29 Routing Scoring Engine
+        let routing_scoring_engine = Arc::new(crate::routing::RoutingScoringEngine::new(
+            provider_registry.clone(),
+            provider_health_manager.clone(),
+            provider_capability_service.clone(),
+            preflight_evaluator.clone(),
+            provider_preferences.clone(),
+        ));
+
+        // Initialize Step 30 Routing Policy Engine
+        let routing_policy_engine = Arc::new(crate::routing::RoutingPolicyEngine::new(
+            provider_registry.clone(),
+            provider_health_manager.clone(),
+            provider_capability_service.clone(),
+            preflight_evaluator.clone(),
+            provider_preferences.clone(),
+            routing_scoring_engine.clone(),
+            app_settings.clone(),
+        ));
+
         let state = AppState::new(
             app_service,
             health_service,
@@ -50,6 +99,15 @@ impl Application {
             app_settings,
             provider_preferences,
             provider_registry,
+            provider_health_manager,
+            provider_capability_service,
+            preflight_evaluator,
+            provider_health_probe,
+            local_slm_service,
+            intent_classifier,
+            task_analyzer,
+            routing_scoring_engine,
+            routing_policy_engine,
         );
         state.mark_initialized("2026-11-07T00:00:00Z");
 
