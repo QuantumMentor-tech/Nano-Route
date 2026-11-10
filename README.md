@@ -12,6 +12,7 @@
 [![React: 18](https://img.shields.io/badge/React-18.3-61DAFB.svg)](https://react.dev/)
 [![TypeScript: 5.6](https://img.shields.io/badge/TypeScript-5.6%20Strict-3178C6.svg)](https://www.typescriptlang.org/)
 [![Vite: 5.4](https://img.shields.io/badge/Vite-5.4-646CFF.svg)](https://vitejs.dev/)
+[![Tests: 277 Passed](https://img.shields.io/badge/Tests-277%20Passed-success.svg)](#6-available-scripts--verification-commands)
 
 </div>
 
@@ -19,9 +20,9 @@
 
 ## 1. Executive Overview
 
-**Nano Route** is a high-performance, local-first Windows desktop AI orchestration application. Its core purpose is to use a lightweight, locally executed Small Language Model (SLM) router to analyze user prompts and tasks, classify requirements, and intelligently dispatch them to an optimal external AI provider (such as Anthropic Claude, OpenAI, Google Gemini, Groq, Mistral, or Local Ollama/GGUF models) according to task requirements, model capabilities, token cost, latency limits, provider availability, user preferences, and fallback policies.
+**Nano Route** is a high-performance, local-first Windows desktop AI orchestration application. Its core purpose is to use a lightweight, locally executed Small Language Model (SLM) router to analyze user prompts and tasks, classify requirements, and intelligently dispatch them to an optimal AI provider (OpenAI, Anthropic Claude, Google Gemini, DeepSeek, Groq, Mistral, and local endpoints) according to task requirements, model capabilities, token cost, latency limits, provider availability, user preferences, and fallback policies.
 
-By delegating task classification to an embedded local SLM running on consumer hardware (DirectML / CPU), Nano Route eliminates the cost and latency of making cloud router calls while ensuring sensitive prompts are evaluated locally before transmission.
+By delegating task classification, complexity scoring, domain taxonomy analysis, and candidate evaluation to an embedded local SLM running on consumer hardware (DirectML / CPU), Nano Route eliminates the cost and latency of cloud router calls while ensuring sensitive prompts are evaluated locally before transmission.
 
 ---
 
@@ -46,30 +47,45 @@ Frontend IPC Client Layer (src/services/ipc)
 Native Rust Command Boundary   Native Push Notifications / Ordered Streaming
        │
        ▼
-Application Service Layer
-  ├── HealthService
-  ├── AppService
-  └── TaskManager (Async, Blocking, Concurrency & Cancellation)
+Local SLM & Routing Intelligence Pipeline (Phase 6)
+  ├── Step 26: Local SLM Runtime & Inference Engine (ONNX Runtime)
+  ├── Step 27: Intent Classification Engine (Versioned Taxonomy & Calibrated Softmax)
+  ├── Step 28: Task Complexity, Domain & Capability Analysis
+  ├── Step 29: Multi-Dimensional Candidate Scoring Engine (11 Normalized Dimensions)
+  └── Step 30: Routing Policy, Final Selection & Manual Override Engine
        │
        ▼
-Domain & Infrastructure Adapters
-  ├── SystemInfoProvider
-  └── (Planned: SQLite, Windows DPAPI, Local ONNX SLM, HTTP Providers)
+Provider Infrastructure & Adapters (Phase 5)
+  ├── Step 14: Provider Abstraction & Neutral Types
+  ├── Step 15: Resilient Streaming Transport & Chunk Parsers
+  ├── Step 21: Canonical Provider & Model Registry
+  ├── Steps 22–24: OpenAI, Anthropic, Gemini, DeepSeek, Groq, Mistral Adapters
+  └── Step 25: Provider Health, Runtime Availability & Preflight Engine
+       │
+       ▼
+Native Data, Security & Persistence (Phases 3–4)
+  ├── Step 16: SQLite Embedded Persistence & Migration Engine
+  ├── Step 17: Chat Session & Message History Persistence
+  ├── Step 18: Telemetry Persistence & Metrics Aggregation
+  ├── Step 19: Windows DPAPI Credential Vault (Encrypted API Keys)
+  └── Step 20: Application Settings & Provider Preferences
 ```
 
 ### Core Architecture Rules:
 1. **Frontend is an Untrusted Client:** UI components never directly invoke unrestricted operating system APIs, execute processes, or decrypt keys.
 2. **Thin Command Boundary:** Rust Tauri commands contain zero business logic or SQL; they validate IPC DTOs and delegate to application services.
 3. **No Unmanaged Background Tasks:** All native asynchronous work is managed by `TaskManager`, with bounded concurrency, hierarchical cancellation (`CancellationToken`), and safe shutdown sweeps.
-4. **Zero Transport Leakage:** React components never import `@tauri-apps/api` directly; all communication is mediated through `src/services/ipc`.
-5. **Privacy First:** Error messages and diagnostic logs automatically scrub filesystem paths (`C:\Users\...`) and secret authorization tokens (`Bearer ...`, `sk-...`).
+4. **Hard Eligibility Decoupled from Soft Scoring:** Ineligible candidates (`is_eligible == false`) strictly receive `total_score: None`. High user preference weights can NEVER revive an ineligible candidate.
+5. **Zero Credential Exposure:** API keys and DPAPI ciphertext are never accessed, deserialized, or serialized in candidate scoring results or routing decisions.
+6. **Privacy First:** Error messages and diagnostic logs automatically scrub filesystem paths (`C:\Users\...`) and secret authorization tokens (`Bearer ...`, `sk-...`, `gsk_...`, `AIza...`).
 
 ---
 
 ## 3. Current Implementation Status
 
-Nano Route is being developed through a structured 50-step engineering plan. **Steps 1 through 13 are complete and verified:**
+Nano Route is being developed through a structured master engineering roadmap. **Steps 1 through 30 are complete and verified:**
 
+### Phase 1–2: Desktop Shell, Design System & UI Foundations
 - [x] **Step 1:** Repository Audit, Requirements Lock & Project Baseline
 - [x] **Step 2:** Tauri v2 + Rust + React + TypeScript Desktop Foundation
 - [x] **Step 3:** Production Folder Architecture & Module Ownership Boundaries
@@ -79,19 +95,38 @@ Nano Route is being developed through a structured 50-step engineering plan. **S
 - [x] **Step 8:** Sidebar Navigation & Application Routing (HashRouter + 7 Pages)
 - [x] **Step 9:** Dashboard Shell & Global Application States
 - [x] **Step 10:** Reusable UI Component Library (Overlays, Feedback, Forms, Navigation, Layout)
-- [x] **Step 11:** Rust Core Architecture & Application Service Layer (`HealthService`, `AppService`)
-- [x] **Step 12:** Secure Tauri IPC Command & Event Architecture (Typed DTOs, Event Subscriptions, Planned Channels)
-- [x] **Step 13:** Background Task & Async Execution Infrastructure (`TaskManager`, `CancellationToken`, Concurrency Semaphores)
 
-### Upcoming Roadmap (Steps 14–50):
-- **Step 14:** Local Model Download & Storage Engine (HuggingFace / GGUF model files)
-- **Step 15:** Cloud AI Provider Integrations & Token Streaming Engine
-- **Step 16:** Local SLM Inference Runtime (ONNX Runtime / DirectML / GGUF)
-- **Step 17:** Intelligent Routing Matrix & Fallback Cascade
-- **Step 18:** Windows DPAPI Credential Vault & Encrypted API Key Storage
-- **Step 19:** SQLite Embedded Database & Migration Engine
-- **Step 20–25:** Chat Studio Interactive Workspace & Streaming Interface
-- **Step 26+:** Token Accounting, Real-Time Latency Tracking & Cost Telemetry
+### Phase 3–4: Native Core, Persistence & DPAPI Security
+- [x] **Step 11:** Rust Core Architecture & Application Service Layer (`HealthService`, `AppService`)
+- [x] **Step 12:** Secure Tauri IPC Command & Event Architecture
+- [x] **Step 13:** Background Task & Async Execution Infrastructure (`TaskManager`, `CancellationToken`)
+- [x] **Step 16:** SQLite Database Foundation, Schema Migrations & Connection Pooling
+- [x] **Step 17:** Chat Session & Message Persistence
+- [x] **Step 18:** Telemetry Persistence & Metrics Aggregation
+- [x] **Step 19:** Windows DPAPI Credential Vault (`CryptProtectData` Encrypted Key Storage)
+- [x] **Step 20:** Application Settings & Provider Preferences Service
+
+### Phase 5: Multi-Provider Layer & Health Intelligence
+- [x] **Step 14:** Provider Abstraction & Neutral Request/Response Types
+- [x] **Step 15:** Streaming Transport & SSE Chunk Parsing Infrastructure
+- [x] **Step 21:** Canonical Provider & Model Registry Foundation
+- [x] **Step 22:** OpenAI Provider Integration
+- [x] **Step 23:** Anthropic Claude Messages API Integration
+- [x] **Step 24:** Google Gemini, DeepSeek, Groq & Mistral Provider Integrations
+- [x] **Step 25:** Provider Health, Runtime Availability & Preflight Evaluation Engine
+
+### Phase 6: Local SLM & Routing Intelligence Pipeline
+- [x] **Step 26:** Local SLM Runtime & On-Device Inference Engine (ONNX Runtime, Thread-Safe Worker)
+- [x] **Step 27:** Local SLM Intent Classification Engine (Gold Evaluation Benchmarks & Ambiguity Handling)
+- [x] **Step 28:** Task Complexity, Domain & Capability Analysis Engine
+- [x] **Step 29:** Routing Scoring Engine (11 Normalized Scoring Dimensions, NaN/Inf Guards)
+- [x] **Step 30:** Routing Policy, Final Selection & Manual Override Engine (Precedence Order & Fallback Planning)
+
+### Upcoming Roadmap (Steps 31–90):
+- **Step 31:** Chat Submission & Execution Pipeline Orchestration
+- **Step 32:** End-to-End Streaming Chat Execution & Token Streaming
+- **Step 33:** Automatic Failover Cascade & Resilient Retry Subsystem
+- **Step 34+:** Chat Studio Advanced Multi-Turn Workspace & Artifact Visualizer
 
 ---
 
@@ -99,7 +134,7 @@ Nano Route is being developed through a structured 50-step engineering plan. **S
 
 To run or develop Nano Route on your Windows workstation:
 
-### Required for Web Preview Mode:
+### Required for Web Preview & Verification:
 - **Operating System:** Windows 10 (Build 19041+) or Windows 11 (x64)
 - **Node.js:** v18.0.0 or later (Tested on `v26.8.2`)
 - **npm:** 9.0.0 or later (Tested on `11.19.1`)
@@ -118,7 +153,7 @@ Simply double-click the included batch launcher in the project root:
 ```cmd
 run.bat
 ```
-`run.bat` automatically checks your Node.js and Rust environments, installs missing npm dependencies, and presents an interactive menu to start the application.
+`run.bat` automatically checks your Node.js and Rust environments, installs missing npm dependencies, and presents an interactive menu to start the application, run the validation harness, or execute test suites.
 
 ---
 
@@ -146,12 +181,12 @@ All development, verification, and testing scripts are deterministic and cross-c
 
 | Command | Action |
 |---|---|
-| `run.bat` | Interactive Windows console launcher. |
+| `run.bat` | Interactive Windows console launcher with environment diagnostics. |
 | `npm run dev` | Starts the Vite development server with Hot Module Replacement on port `1420`. |
 | `npm run typecheck` | Executes strict TypeScript compilation check (`tsc --noEmit`) across all modules and tests. |
-| `npm test` | Runs the Node.js native unit test runner (`node --test`) across all 43 contract and logic tests. |
+| `npm test` | Runs the Node.js native unit test runner (`node --test`) across **all 277 contract and logic tests**. |
 | `npm run build` | Compiles TypeScript and creates an optimized production bundle in `dist/`. |
-| `npm run validate` | Runs the full pipeline: **`typecheck` + `test` + `build`**. |
+| `npm run validate` | Runs the full pipeline: **`typecheck` + `test` (277 tests) + `build`**. |
 | `npm run tauri:dev` | Compiles Rust native core and launches native Tauri desktop application. |
 | `npm run tauri:build` | Generates a production Windows desktop installer (`.msi` / `.exe`). |
 
@@ -173,54 +208,55 @@ Nano Router SLM (Working)/
 ├── docs/                               # Architectural blueprints and engineering specs
 │   └── project/
 │       ├── NANO_ROUTE_ARCHITECTURE.md  # Master architecture specification
-│       ├── NANO_ROUTE_IPC.md           # Secure IPC command, event & channel contracts
-│       ├── NANO_ROUTE_TASK_SYSTEM.md   # Asynchronous execution & TaskManager design
-│       ├── NANO_ROUTE_RUST_CORE.md     # Native service layer architecture
-│       ├── NANO_ROUTE_DESIGN_SYSTEM.md # Dark theme design tokens & visual standards
-│       ├── NANO_ROUTE_DASHBOARD.md     # Operational Dashboard specification
-│       ├── NANO_ROUTE_BUILD_STATUS.md  # Continuous build audit & test baseline
-│       └── NANO_ROUTE_PROJECT_BASELINE.md # Certified project baseline
+│       ├── NANO_ROUTE_ROUTING_POLICY.md # Step 30: Routing policy, overrides & precedence
+│       ├── NANO_ROUTE_ROUTING_SCORING.md # Step 29: 11-factor scoring engine
+│       ├── NANO_ROUTE_TASK_ANALYSIS.md # Step 28: Multidimensional task analysis
+│       ├── NANO_ROUTE_INTENT_CLASSIFICATION.md # Step 27: Intent classification
+│       ├── NANO_ROUTE_LOCAL_SLM_RUNTIME.md # Step 26: ONNX Runtime native inference
+│       ├── NANO_ROUTE_PROVIDER_HEALTH_CAPABILITY.md # Step 25: Health & preflight
+│       ├── NANO_ROUTE_CREDENTIAL_VAULT.md # Step 19: DPAPI key encryption
+│       ├── NANO_ROUTE_DATABASE_ARCHITECTURE.md # Step 16: SQLite persistence
+│       └── ...
 │
 ├── src/                                # Frontend source code
 │   ├── app/                            # Root application component and providers
 │   ├── components/                     # Reusable UI component library (Step 10)
-│   │   ├── ui/                         # Atomic primitives (Button, Input, Badge, Card, etc.)
-│   │   ├── forms/                      # Compound form controls (FormField, SearchField)
-│   │   ├── feedback/                   # Alerts, Toasts, EmptyStates
-│   │   ├── overlays/                   # Dialogs, ConfirmDialogs, Dropdowns, Popovers
-│   │   ├── navigation/                 # Sidebar, Tabs
-│   │   └── layout/                     # SectionHeaders, ScrollContainers
-│   ├── features/                       # Domain feature modules
-│   │   └── dashboard/                  # Dashboard cards, capability grid, diagnostics
+│   ├── features/                       # Domain feature modules (dashboard, chat, settings)
 │   ├── layouts/                        # Desktop shell, navigation region, titlebar
 │   ├── pages/                          # Application route destinations (Dashboard, Chat, Settings, etc.)
 │   ├── routes/                         # Route path registry and HashRouter configuration
 │   ├── services/
-│   │   └── ipc/                        # Secure typed IPC client (Step 12 & 13)
-│   │       ├── types.ts                # DTOs, Event payloads, Channel descriptors
-│   │       ├── errors.ts               # IpcError normalization & regex path/secret sanitization
-│   │       ├── client.ts               # safeInvoke, correlation requestId, mock registry
-│   │       ├── commands.ts             # Typed command invocations (health, app info, ping)
-│   │       ├── events.ts               # Event subscriptions, useTauriEvent hook, cleanup
-│   │       ├── channels.ts             # Channel contracts for ordered token streaming
-│   │       └── __tests__/              # Unit and integration test suites
+│   │   └── ipc/                        # Secure typed IPC client (Steps 12–30)
+│   │       ├── types.ts                # DTOs, Event payloads, Routing contracts
+│   │       ├── routing_policy.ts       # Step 30: Policy & manual override IPC bridge
+│   │       ├── routing_scoring.ts      # Step 29: Candidate scoring IPC bridge
+│   │       ├── task_analysis.ts        # Step 28: Task analysis IPC bridge
+│   │       ├── intent_classifier.ts    # Step 27: Intent classification IPC bridge
+│   │       ├── local_slm.ts            # Step 26: Local SLM inference IPC bridge
+│   │       ├── provider_health.ts      # Step 25: Provider health & preflight IPC bridge
+│   │       ├── credentials.ts          # Step 19: DPAPI credential vault IPC bridge
+│   │       ├── settings.ts             # Step 20: Preferences IPC bridge
+│   │       ├── registry.ts             # Step 21: Provider/model registry IPC bridge
+│   │       └── __tests__/              # 277 Unit and contract test suites
 │   ├── state/                          # Global application runtime state
 │   └── styles/                         # CSS design tokens, reset, and base styles
 │
 └── src-tauri/                          # Rust native core source code
-    ├── Cargo.toml                      # Rust dependencies (tauri, tokio, tokio-util, serde)
+    ├── Cargo.toml                      # Rust dependencies (tauri, tokio, ort, rusqlite, serde)
     ├── tauri.conf.json                 # Tauri v2 desktop application window configuration
-    ├── capabilities/
-    │   └── default.json                # Capability security policy (core:default only)
     └── src/
-        ├── commands/                   # Thin IPC boundary handlers (health, app, diagnostics)
-        ├── core/                       # Composition root and background execution engine
-        │   ├── application.rs          # Application bootstrapping and service graph
-        │   └── tasks/                  # TaskManager, TaskConcurrencyLimiter, CancellationToken
-        ├── domain/                     # Pure domain entities (HealthReport, AppInfo, TaskStatus)
-        ├── errors/                     # Unified AppError enum with serialization
-        ├── infrastructure/             # System adapters (OS, architecture, environment)
-        ├── services/                   # Application services (HealthService, AppService)
+        ├── commands/                   # Tauri IPC command handlers
+        ├── core/                       # Background task manager & application lifecycle
+        ├── domain/                     # Pure domain entities (Health, Settings, Credentials)
+        ├── inference/                  # Step 26: Local ONNX Runtime SLM inference engine
+        ├── classification/             # Step 27: Intent classifier & label taxonomy
+        ├── analysis/                   # Step 28: Task complexity, domain & capability analysis
+        ├── routing/                    # Routing engine
+        │   ├── scoring/                # Step 29: 11-factor candidate scoring engine
+        │   └── policy/                 # Step 30: Policy selection, overrides & fallbacks
+        ├── providers/                  # Cloud provider adapters (OpenAI, Claude, Gemini, etc.)
+        ├── storage/                    # SQLite database manager & repositories
+        ├── services/                   # Application services (Vault, Preferences, Settings)
         ├── state/                      # Managed thread-safe AppState container
         ├── lib.rs                      # Native core library setup & command registration
         └── main.rs                     # Windows application binary entry point
@@ -230,11 +266,11 @@ Nano Router SLM (Working)/
 
 ## 8. Security & Privacy Guarantees
 
-Nano Route is designed from the ground up for enterprise and desktop security:
-- **Local Credential Storage (Step 18):** Future provider API keys are never stored in plaintext JSON or browser `localStorage`; they are encrypted using the Windows Data Protection API (`CryptProtectData`) tied to the local Windows user account.
+Nano Route is designed from the ground up for privacy-preserving AI orchestration:
+- **Local DPAPI Credential Vault (Step 19):** Provider API keys are never stored in plaintext JSON or browser `localStorage`; they are encrypted using the Windows Data Protection API (`CryptProtectData`) tied to the local Windows user account.
 - **Strict Capabilities:** The Tauri capability configuration does not grant access to external plugins for raw filesystem manipulation, command execution (`shell`), or arbitrary sockets.
 - **Leak-Free Diagnostics:** All IPC error objects and diagnostic disclosure screens automatically scrub absolute directory paths (`C:\Users\...`) and authorization tokens before rendering.
-- **Isolated Child Tasks:** Cancellation of one child task (such as a slow fallback provider) is isolated and will not disrupt unrelated application workloads.
+- **Hard Execution Safety:** Manual route overrides cannot bypass model context limits or required task capabilities (e.g. attempting to override to a text-only model for an image task is strictly rejected).
 
 ---
 
@@ -243,4 +279,3 @@ Nano Route is designed from the ground up for enterprise and desktop security:
 This project is licensed under the **MIT License** — see the [LICENSE](./LICENSE) file for details.
 
 Copyright © 2026 Nano Route Engineering. All rights reserved.
-
