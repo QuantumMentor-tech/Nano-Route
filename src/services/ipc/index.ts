@@ -13,6 +13,7 @@ export * from "./events.ts";
 export * from "./channels.ts";
 export * from "./streaming.ts";
 export * from "./chat.ts";
+export * from "./history.ts";
 export * from "./telemetry.ts";
 export * from "./credentials.ts";
 export * from "./settings.ts";

@@ -27,6 +27,7 @@ impl Application {
         );
 
         let chat_service = Arc::new(ChatService::new(database_manager.clone()));
+        let history_service = Arc::new(crate::services::HistoryService::new(database_manager.clone()));
         let telemetry_service = Arc::new(TelemetryService::new(database_manager.clone()));
         let credential_vault = Arc::new(CredentialVaultService::new(database_manager.clone()));
         let app_settings = Arc::new(crate::services::AppSettingsService::new(database_manager.clone()));
@@ -87,6 +88,30 @@ impl Application {
             app_settings.clone(),
         ));
 
+        // Initialize Step 34 Routing Explanation Service
+        let routing_explanation_service = Arc::new(crate::routing::RoutingExplanationService::new(
+            chat_service.clone(),
+            telemetry_service.clone(),
+            provider_registry.clone(),
+        ));
+
+        // Initialize Step 35 Execution Lifecycle Manager
+        let execution_manager = Arc::new(crate::services::execution::ExecutionManager::new());
+
+        // Initialize Step 32 Provider Resolver & Chat Orchestrator
+        let provider_resolver = Arc::new(crate::providers::resolver::ProviderResolver::new(credential_vault.clone()));
+        let chat_orchestrator = Arc::new(crate::services::ChatOrchestrator::new(
+            chat_service.clone(),
+            task_analyzer.clone(),
+            routing_scoring_engine.clone(),
+            routing_policy_engine.clone(),
+            routing_explanation_service.clone(),
+            execution_manager.clone(),
+            provider_registry.clone(),
+            provider_resolver.clone(),
+            telemetry_service.clone(),
+        ));
+
         let state = AppState::new(
             app_service,
             health_service,
@@ -94,6 +119,7 @@ impl Application {
             stream_coordinator,
             database_manager,
             chat_service,
+            history_service,
             telemetry_service,
             credential_vault,
             app_settings,
@@ -108,6 +134,10 @@ impl Application {
             task_analyzer,
             routing_scoring_engine,
             routing_policy_engine,
+            provider_resolver,
+            chat_orchestrator,
+            routing_explanation_service,
+            execution_manager,
         );
         state.mark_initialized("2026-11-07T00:00:00Z");
 

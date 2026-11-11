@@ -2,8 +2,23 @@
 //!
 //! Responsibility:
 //! - Standardized application and service error hierarchy.
+//! - Canonical error taxonomy and normalized failure envelopes (Step 36).
 //! - Normalization of domain and infrastructure failures into safe IPC errors.
 //! - Prevents leaking internal paths, database connection strings, or secrets.
+
+pub mod classifier;
+pub mod envelope;
+pub mod provider_mapping;
+pub mod sanitizer;
+pub mod taxonomy;
+
+pub use classifier::ErrorClassifier;
+pub use envelope::{ErrorEnvelope, ERROR_SCHEMA_VERSION};
+pub use sanitizer::{sanitize_error_text, MAX_ERROR_TEXT_LEN};
+pub use taxonomy::{
+    ClassificationProvenance, ErrorCategory, ErrorSeverity, FailoverHint, RetryabilityHint,
+    UserAction,
+};
 
 use serde::Serialize;
 use std::fmt;

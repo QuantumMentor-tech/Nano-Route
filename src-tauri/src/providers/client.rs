@@ -101,6 +101,27 @@ pub trait ProviderClient: Send + Sync {
         context: &TaskContext,
     ) -> Result<ProviderResponse, ProviderError>;
 
+    /// Executes a streaming completion request delivering incremental `ProviderStreamChunk` items.
+    ///
+    /// Default implementation delegates to `execute()` and yields a single final chunk.
+    async fn execute_stream(
+        &self,
+        request: ProviderRequest,
+        context: &TaskContext,
+        mut on_chunk: Box<dyn FnMut(crate::services::streaming::types::ProviderStreamChunk) -> Result<(), ProviderError> + Send>,
+    ) -> Result<(), ProviderError> {
+        let resp = self.execute(request, context).await?;
+        let chunk = crate::services::streaming::types::ProviderStreamChunk {
+            text_delta: Some(resp.text),
+            reasoning_delta: None,
+            usage: resp.usage,
+            finish_reason: Some(resp.finish_reason),
+            is_final: true,
+        };
+        on_chunk(chunk)?;
+        Ok(())
+    }
+
     /// Probes provider connectivity, credentials, and operational health.
     async fn health_check(&self) -> Result<ProviderHealthReport, ProviderError>;
 }

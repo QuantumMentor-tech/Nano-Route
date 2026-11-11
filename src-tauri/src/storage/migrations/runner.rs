@@ -57,6 +57,11 @@ pub static BUILTIN_MIGRATIONS: &[Migration] = &[
         name: "005_app_settings",
         sql: include_str!("005_app_settings.sql"),
     },
+    Migration {
+        version: 6,
+        name: "006_history_search_indexes",
+        sql: include_str!("006_history_search_indexes.sql"),
+    },
 ];
 
 /// Execution summary returned after running database migrations.
@@ -256,15 +261,16 @@ mod tests {
     fn test_builtin_migrations_run() {
         let mut conn = rusqlite::Connection::open_in_memory().unwrap();
         let report = MigrationRunner::run(&mut conn).unwrap();
+        let expected_count = BUILTIN_MIGRATIONS.len();
 
         assert_eq!(report.initial_version, 0);
-        assert_eq!(report.final_version, 1);
-        assert_eq!(report.applied_count, 1);
+        assert_eq!(report.final_version, expected_count as i64);
+        assert_eq!(report.applied_count, expected_count);
 
         // Verify idempotency: second run does nothing
         let second_report = MigrationRunner::run(&mut conn).unwrap();
         assert_eq!(second_report.applied_count, 0);
-        assert_eq!(second_report.final_version, 1);
+        assert_eq!(second_report.final_version, expected_count as i64);
     }
 
     #[test]

@@ -142,6 +142,18 @@ export const IPC_COMMANDS = {
   GET_CHAT_MESSAGES: "cmd_get_chat_messages",
   GET_CHAT_CONVERSATION: "cmd_get_chat_conversation",
   DELETE_CHAT_MESSAGE: "cmd_delete_chat_message",
+  LIST_HISTORY_SESSIONS: "cmd_list_history_sessions",
+  SEARCH_HISTORY: "cmd_search_history",
+  GET_HISTORY_FILTER_OPTIONS: "cmd_get_history_filter_options",
+  DELETE_HISTORY_SESSIONS_BULK: "cmd_delete_history_sessions_bulk",
+  REBUILD_HISTORY_SEARCH_INDEX: "cmd_rebuild_history_search_index",
+  SUBMIT_CHAT_PROMPT: "cmd_submit_chat_prompt",
+  STREAM_CHAT_PROMPT: "cmd_stream_chat_prompt",
+  CANCEL_CHAT_EXECUTION: "cmd_cancel_chat_execution",
+  CANCEL_SESSION_CHAT: "cmd_cancel_session_chat",
+  GET_EXECUTION_STATE: "cmd_get_execution_state",
+  PREFLIGHT_CHECK: "cmd_preflight_check",
+  GET_QUOTA_SNAPSHOT: "cmd_get_quota_snapshot",
   RECORD_TELEMETRY_EVENT: "cmd_record_telemetry_event",
   LIST_TELEMETRY_RECORDS: "cmd_list_telemetry_records",
   GET_TELEMETRY_AGGREGATES: "cmd_get_telemetry_aggregates",
@@ -191,6 +203,8 @@ export const IPC_COMMANDS = {
   GET_ROUTING_POLICY_CONFIG: "cmd_get_routing_policy_config",
   UPDATE_ROUTING_POLICY_CONFIG: "cmd_update_routing_policy_config",
   VALIDATE_MANUAL_OVERRIDE: "cmd_validate_manual_override",
+  GET_ROUTING_EXPLANATION: "cmd_get_routing_explanation",
+  CLASSIFY_ERROR: "cmd_classify_error",
 } as const;
 
 export type IpcCommandName = (typeof IPC_COMMANDS)[keyof typeof IPC_COMMANDS];
@@ -571,6 +585,13 @@ export interface ChatMessageMetadata {
   completionTokens: number;
   latencyMs: number;
   costUsd: number;
+  failoverUsed?: boolean | null;
+  failoverFromProvider?: string | null;
+  failoverFromModel?: string | null;
+  failoverReason?: string | null;
+  failoverAttempts?: number | null;
+  retryCount?: number | null;
+  totalAttempts?: number | null;
 }
 
 export interface ChatSession {
@@ -588,6 +609,11 @@ export interface ChatMessage {
   content: string;
   metadata: ChatMessageMetadata;
   createdAt: number;
+  isStreaming?: boolean;
+  isFailed?: boolean;
+  isCancelled?: boolean;
+  status?: "pending" | "streaming" | "completed" | "failed" | "cancelled";
+  error?: ErrorEnvelope;
 }
 
 export interface ChatConversation {
@@ -616,6 +642,217 @@ export interface GetChatMessagesRequest {
   sessionId: string;
   limit?: number;
   offset?: number;
+}
+
+export interface ChatManualRouteOverrideDto {
+  providerId: string;
+  modelId: string;
+}
+
+export interface ChatSubmissionRequest {
+  requestId?: string;
+  executionId?: string;
+  sessionId: string;
+  prompt: string;
+  manualOverride?: ChatManualRouteOverrideDto;
+}
+
+export interface ChatSubmissionResult {
+  requestId: string;
+  executionId?: string;
+  sessionId: string;
+  userMessage: ChatMessage;
+  assistantMessage: ChatMessage;
+  routedProvider: string;
+  routedModel: string;
+  selectionMode: string;
+  routingReason: string;
+  slmConfidence: number | null;
+  latencyMs: number;
+  promptTokens: number;
+  completionTokens: number;
+  costUsd: number;
+  status: string;
+}
+
+// ============================================================================
+// --- Chat Streaming Contracts (Step 33) ---
+// ============================================================================
+
+export type ChatStreamEventType = "started" | "delta" | "usage" | "completed" | "failed" | "cancelled" | "failover" | "retry";
+
+export interface ChatStreamStartedEvent {
+  type: "started";
+  streamId: string;
+  sequence: number;
+  requestId: string;
+  sessionId: string;
+  userMessageId: string;
+  providerId: string;
+  modelId: string;
+  selectionMode: string;
+  routingReason: string;
+  slmConfidence: number | null;
+  timestampMs: number;
+  executionId?: string;
+}
+
+export interface ChatStreamDeltaEvent {
+  type: "delta";
+  streamId: string;
+  sequence: number;
+  text: string;
+}
+
+export interface ChatStreamUsageEvent {
+  type: "usage";
+  streamId: string;
+  sequence: number;
+  promptTokens: number;
+  completionTokens: number;
+}
+
+export interface ChatStreamCompletedEvent {
+  type: "completed";
+  streamId: string;
+  sequence: number;
+  finishReason: string;
+  latencyMs: number;
+  promptTokens: number;
+  completionTokens: number;
+  costUsd: number;
+  assistantMessage: ChatMessage;
+}
+
+export interface ChatStreamFailedEvent {
+  type: "failed";
+  streamId: string;
+  sequence: number;
+  code: string;
+  message: string;
+  isRetryable: boolean;
+  error?: ErrorEnvelope;
+}
+
+export interface ChatStreamCancelledEvent {
+  type: "cancelled";
+  streamId: string;
+  sequence: number;
+  executionId?: string;
+  reason: string;
+  partialText?: string;
+  timestampMs: number;
+}
+
+export interface ChatStreamFailoverEvent {
+  type: "failover";
+  streamId: string;
+  sequence: number;
+  logicalRequestId?: string;
+  attempt: number;
+  fromProvider: string;
+  fromModel: string;
+  toProvider: string;
+  toModel: string;
+  reason: string;
+  newStreamId: string;
+  timestampMs: number;
+  executionId?: string;
+}
+
+export interface ChatStreamRetryEvent {
+  type: "retry";
+  streamId: string;
+  sequence: number;
+  logicalRequestId?: string;
+  attempt: number;
+  maxRetries: number;
+  delayMs: number;
+  providerId: string;
+  modelId: string;
+  reason: string;
+  timestampMs: number;
+  executionId?: string;
+}
+
+export type ChatStreamEvent =
+  | ChatStreamStartedEvent
+  | ChatStreamDeltaEvent
+  | ChatStreamUsageEvent
+  | ChatStreamCompletedEvent
+  | ChatStreamFailedEvent
+  | ChatStreamCancelledEvent
+  | ChatStreamFailoverEvent
+  | ChatStreamRetryEvent;
+
+// ============================================================================
+// --- Execution Lifecycle & Cancellation Contracts (Step 35) ---
+// ============================================================================
+
+export type ExecutionLifecycleState =
+  | "created"
+  | "validating"
+  | "routing"
+  | "route_resolved"
+  | "executing"
+  | "streaming"
+  | "cancelling"
+  | "cancelled"
+  | "completed"
+  | "failed"
+  | "recovering";
+
+export type TerminationReasonDto =
+  | "user_cancelled"
+  | "session_changed"
+  | "view_disposed"
+  | "application_interrupted"
+  | "transport_interrupted"
+  | "stream_closed"
+  | "execution_aborted"
+  | "provider_failed"
+  | "unknown_interruption";
+
+export interface CancellationResultDto {
+  executionId: string;
+  previousState: ExecutionLifecycleState;
+  state: ExecutionLifecycleState;
+  cancelled: boolean;
+  reason: TerminationReasonDto;
+  durationMs: number;
+  message?: string;
+}
+
+export interface ExecutionStateDto {
+  executionId: string;
+  requestId: string;
+  sessionId: string;
+  state: ExecutionLifecycleState;
+  providerId?: string;
+  modelId?: string;
+  streamId?: string;
+  startedAtMs: number;
+  endedAtMs?: number;
+  durationMs: number;
+  isActive: boolean;
+  isTerminal: boolean;
+  canCancel: boolean;
+  terminationReason?: TerminationReasonDto;
+}
+
+export interface RecoveryContextDto {
+  executionId: string;
+  sessionId: string;
+  providerId?: string;
+  modelId?: string;
+  streamId?: string;
+  terminationReason: TerminationReasonDto;
+  wasStreaming: boolean;
+  startedAtMs: number;
+  endedAtMs: number;
+  durationMs: number;
+  partialTextLen: number;
+  errorMessage?: string;
 }
 
 // ============================================================================
@@ -1436,15 +1673,397 @@ export interface RoutingPolicyRequestDto {
   estimated_output_tokens?: number;
 }
 
+// --- Step 34: Routing Explanation Contracts ---
 
+export interface SelectedRouteExplanationDto {
+  providerId: string;
+  providerName: string;
+  modelId: string;
+  modelName: string;
+  isLocal: boolean;
+  contextWindow?: number | null;
+}
 
+export interface TaskRequirementExplanationDto {
+  capability: string;
+  label: string;
+  isMatchedBySelectedModel: boolean;
+}
 
+export interface TaskAnalysisSummaryDto {
+  primaryIntent: string;
+  intentLabel: string;
+  intentConfidence: number;
+  complexity: string;
+  complexityLabel: string;
+  complexityScore: number;
+  domains: string[];
+  requiredCapabilities: TaskRequirementExplanationDto[];
+  isAmbiguous: boolean;
+  ambiguityLevel: string;
+  completeness: string;
+}
 
+export interface ScoreDimensionExplanationDto {
+  key: string;
+  label: string;
+  score: number;
+  weightPercent?: number | null;
+  weightedContribution?: number | null;
+  explanation: string;
+  status: string;
+}
 
+export interface ScoreAdjustmentExplanationDto {
+  dimension: string;
+  delta: number;
+  reason: string;
+}
 
+export interface ScoreBreakdownExplanationDto {
+  overallScore?: number | null;
+  dimensions: ScoreDimensionExplanationDto[];
+  adjustments: ScoreAdjustmentExplanationDto[];
+}
 
+export interface ConfidenceSummaryExplanationDto {
+  slmConfidence?: number | null;
+  slmConfidenceLevel: string;
+  routingFit?: number | null;
+  selectionMargin?: number | null;
+  description: string;
+}
 
+export interface SelectionMarginExplanationDto {
+  margin?: number | null;
+  runnerUpModel?: string | null;
+  runnerUpScore?: number | null;
+  description: string;
+}
 
+export interface AlternativeCandidateExplanationDto {
+  rank: number;
+  providerId: string;
+  providerName: string;
+  modelId: string;
+  displayName: string;
+  score?: number | null;
+  isEligible: boolean;
+  ineligibilityReason?: string | null;
+  status: string;
+}
+
+export interface PolicyFactorExplanationDto {
+  factor: string;
+  label: string;
+  description: string;
+}
+
+export interface ExplanationEvidenceDto {
+  source: string;
+  label: string;
+  detail: string;
+}
+
+export interface RoutingExplanationDto {
+  schemaVersion: string;
+  scoringAlgorithmVersion: string;
+  policyVersion: string;
+  classifierVersion?: string | null;
+  messageId?: string | null;
+  sessionId?: string | null;
+  selectionMode: string;
+  summary: string;
+  decisionReason: string;
+  isHistorical: boolean;
+  selectedRoute: SelectedRouteExplanationDto;
+  taskSummary?: TaskAnalysisSummaryDto | null;
+  scoreBreakdown?: ScoreBreakdownExplanationDto | null;
+  confidenceSummary: ConfidenceSummaryExplanationDto;
+  selectionMargin?: SelectionMarginExplanationDto | null;
+  alternatives: AlternativeCandidateExplanationDto[];
+  policyFactors: PolicyFactorExplanationDto[];
+  evidence: ExplanationEvidenceDto[];
+  generatedAtMs: number;
+}
+
+// ============================================================================
+// --- Step 36: Error Classification & Normalized Failure Handling Contracts ---
+// ============================================================================
+
+export type ErrorCategory =
+  | "cancelled"
+  | "credential_missing"
+  | "credential_invalid_configuration"
+  | "provider_disabled"
+  | "endpoint_misconfigured"
+  | "model_configuration_invalid"
+  | "unsupported_provider_configuration"
+  | "authentication_failed"
+  | "authorization_failed"
+  | "rate_limited"
+  | "context_limit_exceeded"
+  | "input_too_large"
+  | "output_limit_exceeded"
+  | "invalid_request"
+  | "unsupported_capability"
+  | "model_unavailable"
+  | "provider_unavailable"
+  | "network_unreachable"
+  | "dns_resolution_failed"
+  | "connection_failed"
+  | "tls_failed"
+  | "connection_reset"
+  | "transport_closed"
+  | "network_unknown"
+  | "timeout"
+  | "stream_interrupted"
+  | "malformed_provider_response"
+  | "provider_response_parse_failed"
+  | "unexpected_provider_response"
+  | "local_model_unavailable"
+  | "local_model_load_failed"
+  | "local_inference_failed"
+  | "local_model_input_invalid"
+  | "local_model_output_invalid"
+  | "local_model_runtime_unavailable"
+  | "intent_classification_failed"
+  | "task_analysis_failed"
+  | "routing_scoring_failed"
+  | "routing_policy_failed"
+  | "no_eligible_route"
+  | "database_failure"
+  | "persistence_failure"
+  | "chat_history_write_failed"
+  | "telemetry_write_failed"
+  | "internal_error"
+  | "unknown";
+
+export type ErrorSeverity = "info" | "warning" | "error" | "critical";
+
+export type RetryabilityHint =
+  | "unknown"
+  | "not_applicable"
+  | "likely_transient"
+  | "likely_permanent"
+  | "user_action_required";
+
+export type FailoverHint =
+  | "unknown"
+  | "potentially_eligible"
+  | "usually_not_eligible"
+  | "not_applicable";
+
+export type UserAction =
+  | "none"
+  | "configure_provider"
+  | "update_credential"
+  | "check_provider_access"
+  | "reduce_input"
+  | "change_unsupported_option"
+  | "wait_and_retry_later"
+  | "check_network"
+  | "contact_provider";
+
+export type ClassificationProvenance =
+  | "provider_specific"
+  | "http_status"
+  | "transport"
+  | "stream_protocol"
+  | "local_runtime"
+  | "routing"
+  | "persistence"
+  | "application"
+  | "cancellation"
+  | "fallback_unknown";
+
+export interface ErrorEnvelope {
+  errorId: string;
+  errorCode: string;
+  category: ErrorCategory;
+  severity: ErrorSeverity;
+  userMessage: string;
+  technicalMessage: string;
+  executionId?: string;
+  correlationId?: string;
+  providerId?: string;
+  modelId?: string;
+  providerRequestId?: string;
+  providerErrorCode?: string;
+  httpStatus?: number;
+  retryAfterMs?: number;
+  isTerminal: boolean;
+  retryabilityHint: RetryabilityHint;
+  failoverHint: FailoverHint;
+  userAction: UserAction;
+  provenance: ClassificationProvenance;
+  schemaVersion: number;
+  occurredAtMs: number;
+}
+
+// ============================================================================
+// --- Step 39: Context, Quota & Availability Control Contracts ---
+// ============================================================================
+
+export type ContextStatus = "sufficient" | "near_limit" | "exceeds_limit" | "unsupported";
+
+export type TokenCountProvenance = "exact" | "estimated" | "unknown";
+
+export interface ContextCheckResultDto {
+  inputTokens: number;
+  requestedOutputTokens: number;
+  totalRequiredTokens: number;
+  contextWindowLimit: number;
+  maxOutputTokensLimit: number;
+  safetyMarginTokens: number;
+  availableHeadroom: number;
+  status: ContextStatus;
+  provenance: TokenCountProvenance;
+  reason?: string;
+}
+
+export type QuotaScope = "provider" | "model" | "account";
+
+export interface QuotaSnapshotDto {
+  scope: QuotaScope;
+  providerId: string;
+  modelId?: string;
+  monthlyBudgetLimit?: number;
+  currentMonthSpend: number;
+  isExhausted: boolean;
+  isStale: boolean;
+  observedAtMs: number;
+  resetAtMs?: number;
+}
+
+export type PreflightReasonCode =
+  | "context_exceeded"
+  | "output_limit_exceeded"
+  | "capability_mismatch"
+  | "credential_missing"
+  | "provider_disabled"
+  | "model_unavailable"
+  | "endpoint_misconfigured"
+  | "local_budget_exceeded"
+  | "provider_quota_exhausted"
+  | "provider_unavailable"
+  | "already_attempted";
+
+export interface ExecutionPreflightDto {
+  eligible: boolean;
+  reasonCode?: PreflightReasonCode;
+  rejectionReason?: any;
+  userMessage?: string;
+  contextCheck?: ContextCheckResultDto;
+  estimatedCostUsd?: number;
+}
+
+// ============================================================================
+// --- Step 41: History Explorer, Search & Conversation Management Contracts ---
+// ============================================================================
+
+export type HistorySortMode =
+  | "most_recent"
+  | "oldest"
+  | "recently_created"
+  | "oldest_created"
+  | "pinned_first";
+
+export type HistoryMatchType = "session_title" | "message_content";
+
+export type HistorySearchEngine = "fts5" | "sql_indexed_fallback";
+
+export interface HistoryFilter {
+  query?: string | null;
+  providerId?: string | null;
+  modelId?: string | null;
+  pinnedOnly?: boolean | null;
+  dateFrom?: number | null;
+  dateTo?: number | null;
+}
+
+export interface HistoryPagination {
+  limit: number;
+  offset: number;
+}
+
+export interface HistorySearchRequest {
+  query?: string | null;
+  filter?: HistoryFilter | null;
+  sort?: HistorySortMode | null;
+  limit?: number | null;
+  offset?: number | null;
+  queryId?: string | null;
+}
+
+export interface HistorySessionDto {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  pinned: boolean;
+  messageCount: number;
+  providersUsed: string[];
+  modelsUsed: string[];
+}
+
+export interface HistoryMessageMatchPreview {
+  messageId: string;
+  sessionId: string;
+  sender: MessageSender;
+  matchType: HistoryMatchType;
+  previewText: string;
+  matchStartOffset: number | null;
+  matchLength: number | null;
+  routedProvider: string | null;
+  routedModel: string | null;
+  createdAt: number;
+}
+
+export interface HistorySearchResult {
+  session: HistorySessionDto;
+  matchTypes: HistoryMatchType[];
+  titleMatch: boolean;
+  titleMatchStart: number | null;
+  titleMatchLength: number | null;
+  matchedMessageCount: number;
+  matchedMessageIds: string[];
+  previews: HistoryMessageMatchPreview[];
+}
+
+export interface HistoryPageInfo {
+  limit: number;
+  offset: number;
+  totalCount: number | null;
+  totalCountIsExact: boolean;
+  hasMore: boolean;
+}
+
+export interface HistoryPage {
+  items: HistorySessionDto[];
+  pageInfo: HistoryPageInfo;
+  queryId?: string | null;
+}
+
+export interface HistorySearchResponse {
+  queryId?: string | null;
+  items: HistorySearchResult[];
+  pageInfo: HistoryPageInfo;
+  searchEngineUsed: HistorySearchEngine;
+  durationMs: number;
+}
+
+export interface HistoryFilterOptions {
+  providers: string[];
+  models: string[];
+}
+
+export interface BulkDeleteResult {
+  requestedCount: number;
+  deletedCount: number;
+  deletedSessionIds: string[];
+  missingSessionIds: string[];
+}
 
 
 

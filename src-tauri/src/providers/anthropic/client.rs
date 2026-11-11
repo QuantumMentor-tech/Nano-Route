@@ -324,6 +324,15 @@ impl ProviderClient for AnthropicClient {
         )
     }
 
+    async fn execute_stream(
+        &self,
+        request: ProviderRequest,
+        context: &TaskContext,
+        mut on_chunk: Box<dyn FnMut(ProviderStreamChunk) -> Result<(), ProviderError> + Send>,
+    ) -> Result<(), ProviderError> {
+        self.execute_stream_chunks(request, context, |chunk| on_chunk(chunk)).await
+    }
+
     async fn health_check(&self) -> Result<ProviderHealthReport, ProviderError> {
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)

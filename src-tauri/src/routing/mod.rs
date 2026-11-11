@@ -6,9 +6,11 @@
 //! - Resilient fallback cascade coordination.
 //! - Must NOT own UI components, plaintext secret storage, or raw provider HTTP details.
 
+pub mod explanation;
 pub mod policy;
 pub mod scoring;
 
+pub use explanation::{RoutingExplanation, RoutingExplanationService};
 pub use policy::{
     CandidateSelectionStatus, FallbackCandidate, ManualOverrideEvaluator, ManualRouteOverride,
     OverrideRejectionReason, OverrideResolution, OverrideState, OverrideValidationResult,

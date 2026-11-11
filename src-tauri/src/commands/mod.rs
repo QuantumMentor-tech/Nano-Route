@@ -12,9 +12,11 @@ pub mod credentials;
 pub mod database;
 pub mod diagnostics;
 pub mod health;
+pub mod history;
 pub mod local_slm;
 pub mod provider_health;
 pub mod registry;
+pub mod routing_explanation;
 pub mod routing_policy;
 pub mod routing_scoring;
 pub mod settings;
@@ -24,10 +26,12 @@ pub mod telemetry;
 
 pub use app::cmd_get_app_info;
 pub use chat::{
-    cmd_append_chat_message, cmd_create_chat_session, cmd_delete_chat_message,
+    cmd_append_chat_message, cmd_cancel_chat_execution, cmd_cancel_session_chat,
+    cmd_classify_error, cmd_create_chat_session, cmd_delete_chat_message,
     cmd_delete_chat_session, cmd_get_chat_conversation, cmd_get_chat_messages,
-    cmd_get_chat_session, cmd_list_chat_sessions, cmd_rename_chat_session,
-    cmd_set_chat_session_pinned,
+    cmd_get_chat_session, cmd_get_execution_state, cmd_get_quota_snapshot,
+    cmd_list_chat_sessions, cmd_preflight_check, cmd_rename_chat_session,
+    cmd_set_chat_session_pinned, cmd_stream_chat_prompt, cmd_submit_chat_prompt,
 };
 pub use classification::{
     cmd_classify_intent, cmd_evaluate_classifier, cmd_get_classifier_status,
@@ -40,6 +44,10 @@ pub use credentials::{
 pub use database::cmd_get_database_health;
 pub use diagnostics::{cmd_ping, PingRequest, PingResponse, MAX_PING_MESSAGE_LEN};
 pub use health::{cmd_get_health, cmd_health_check};
+pub use history::{
+    cmd_delete_history_sessions_bulk, cmd_get_history_filter_options,
+    cmd_list_history_sessions, cmd_rebuild_history_search_index, cmd_search_history,
+};
 pub use local_slm::{
     cmd_get_local_model_status, cmd_get_local_runtime_metrics, cmd_get_local_runtime_status,
     cmd_initialize_local_runtime, cmd_load_router_model, cmd_run_local_inference,
@@ -53,6 +61,7 @@ pub use registry::{
     cmd_get_registered_model, cmd_get_registered_provider, cmd_list_registered_models,
     cmd_list_registered_providers, cmd_resolve_effective_providers, cmd_resolve_historical_model,
 };
+pub use routing_explanation::cmd_get_routing_explanation;
 pub use routing_policy::{
     cmd_evaluate_routing_policy, cmd_get_routing_policy_config,
     cmd_update_routing_policy_config, cmd_validate_manual_override,

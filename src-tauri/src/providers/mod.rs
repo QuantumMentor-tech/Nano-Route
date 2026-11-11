@@ -31,6 +31,7 @@ pub mod preflight;
 pub mod probe;
 pub mod registry;
 pub mod request;
+pub mod resolver;
 pub mod response;
 pub mod shared;
 
@@ -69,5 +70,6 @@ pub use probe::{
     DefaultHealthProbeRunner, HealthCheckResult, HealthProbeRunner, ProviderHealthProbeService,
 };
 pub use registry::ProviderRegistry;
+pub use resolver::ProviderResolver;
 pub use request::{ChatMessage, GenerationParams, MessageRole, ProviderRequest, RequestMetadata, ToolDefinition};
 pub use response::{ProviderFinishReason, ProviderResponse, ProviderUsage, ResponseMetadata};

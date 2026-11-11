@@ -218,12 +218,13 @@ mod tests {
     #[test]
     fn test_in_memory_database_manager() {
         let manager = DatabaseManager::in_memory().unwrap();
-        assert_eq!(manager.schema_version().unwrap(), 1);
+        let expected_count = crate::storage::migrations::BUILTIN_MIGRATIONS.len();
+        assert_eq!(manager.schema_version().unwrap(), expected_count as i64);
 
         let health = manager.health_check().unwrap();
         assert_eq!(health.status, DatabaseStatus::Ready);
         assert!(health.integrity_ok);
-        assert_eq!(health.migrations_applied, 1);
+        assert_eq!(health.migrations_applied, expected_count);
         assert_eq!(health.database_path, ":memory:");
     }
 

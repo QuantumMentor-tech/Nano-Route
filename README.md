@@ -12,7 +12,7 @@
 [![React: 18](https://img.shields.io/badge/React-18.3-61DAFB.svg)](https://react.dev/)
 [![TypeScript: 5.6](https://img.shields.io/badge/TypeScript-5.6%20Strict-3178C6.svg)](https://www.typescriptlang.org/)
 [![Vite: 5.4](https://img.shields.io/badge/Vite-5.4-646CFF.svg)](https://vitejs.dev/)
-[![Tests: 277 Passed](https://img.shields.io/badge/Tests-277%20Passed-success.svg)](#6-available-scripts--verification-commands)
+[![Tests: 427 Passed](https://img.shields.io/badge/Tests-427%20Passed-success.svg)](#6-available-scripts--verification-commands)
 
 </div>
 
@@ -83,7 +83,7 @@ Native Data, Security & Persistence (Phases 3–4)
 
 ## 3. Current Implementation Status
 
-Nano Route is being developed through a structured master engineering roadmap. **Steps 1 through 30 are complete and verified:**
+Nano Route is being developed through a structured master engineering roadmap. **Steps 1 through 40 are complete and verified:**
 
 ### Phase 1–2: Desktop Shell, Design System & UI Foundations
 - [x] **Step 1:** Repository Audit, Requirements Lock & Project Baseline
@@ -122,11 +122,21 @@ Nano Route is being developed through a structured master engineering roadmap. *
 - [x] **Step 29:** Routing Scoring Engine (11 Normalized Scoring Dimensions, NaN/Inf Guards)
 - [x] **Step 30:** Routing Policy, Final Selection & Manual Override Engine (Precedence Order & Fallback Planning)
 
-### Upcoming Roadmap (Steps 31–90):
-- **Step 31:** Chat Submission & Execution Pipeline Orchestration
-- **Step 32:** End-to-End Streaming Chat Execution & Token Streaming
-- **Step 33:** Automatic Failover Cascade & Resilient Retry Subsystem
-- **Step 34+:** Chat Studio Advanced Multi-Turn Workspace & Artifact Visualizer
+### Phase 7: Chat Experience & Orchestration
+- [x] **Step 31:** Chat Studio UI & Conversation Workspace (Session Sidebar, Timeline, Pure React Safe Markdown, Monospace CodeBlock, Dynamic Composer, Stale-Request Protection, Decoupled `SubmitPromptIntent`)
+- [x] **Step 32:** Prompt Submission, Routing Pipeline & Provider Execution (End-to-End Non-Streaming Execution, Context Builder, Provider Resolver, Metadata Persistence, Double-Submission Protection)
+- [x] **Step 33:** Streaming Response Engine & Live Chat Transport (Tauri v2 Channel Transport, Lossless Token Streamer, Monotonic Sequence Guarantees, Single SQLite Assistant Commit)
+- [x] **Step 34:** Routing Explanation, Score Breakdown & Confidence Experience (On-Device Read-Only Explainability, Confidence Triad Semantics, 11-Dimension Candidate Scores, Expandable "Why this route?" Accordion)
+- [x] **Step 35:** Recovery, Cancellation & Execution Lifecycle Control (Formal Execution Lifecycle State Machine, Cooperative CancellationToken Propagation, Idempotent Single-Finalization Winner Invariant, Live Stream Cancellation without Assistant SQLite Persistence, Stop Generation Composer Button with Escape Key Support, Session-Switching Isolation & Component Unmount Cleanup)
+- [x] **Step 36:** Error Classification & Normalized Failure Handling (Provider-Neutral Error Taxonomy, 44 Canonical Categories, ErrorEnvelope DTO with Informational Hints, Sanitization of Keys and Filesystem Paths, Cancellation Precedence Over Aborts, Persistence Failure Isolation, Chat Studio Error Presentation)
+- [x] **Step 37:** Automatic Failover & Fallback Execution Engine (Pre-ranked Step 30 Fallback Candidate Traversal, Candidate Pre-validation against DPAPI Vault & Model Catalog, Stream Isolation with Discard of Primary Partial Content, Strict Manual Override Non-substitution Guarantee, Exactly-Once SQLite Assistant Persistence with Failover Provenance, Amber Failover Badge in Chat Studio)
+- [x] **Step 38:** Retry, Timeout & Rate-Limit Control Engine (Centralized Retry Policy, Explicit Retry Safety Classifications, No Blind Replay on Ambiguous Post-Send Timeout, Stream Token Emission Safety, Clamped Retry-After & Jittered Backoff, Two-Tier Logical Request Deadlines, Non-Blocking Cooperative Cancellation During Backoff Waits, Clean Handoff to Step 37 Failover)
+- [x] **Step 39:** Context, Quota & Availability Control (Context Window Headroom Evaluation, Heuristic Token Estimator with Framing Overhead, 10% Safety Buffer, Windows DPAPI Monthly Budget Limits, Observed Provider Quota Tracking with Advisory Resets, Zero-Network-Call Candidate Disqualification, Clean Handoff to Step 37 Failover & Step 38 Retries, Tolerance for Unknown Pricing)
+- [x] **Step 40:** Reliability Testing & Resilience Validation (Integrated End-to-End Validation across Steps 35–39, 18 Core Failure/Recovery Scenarios, 10 Property-Style Safety Invariants, Native `ExecutionManager` Lock-Ordering & TOCTOU Deadlock Remediation, Security Path/Token Redaction Alignment, Deterministic Fault-Injection Test Harness & Matrix)
+- [x] **Step 41:** History Explorer, Search & Conversation Management (SQLite Migration `006` Composite Indexes & `history_search_fts` FTS5 Table with Atomic Triggers, Indexed SQL `LIKE` Fallback, Single-Query Aggregate Listing, Exact-Title > Partial-Title > Content Ranking, Safe Plain-Text React `<mark>` Highlighting, Provider/Model/Pinned/Local-Date Filters, Bounded Pagination, Controlled Pin/Rename/Message-Delete/Session-Delete/Bulk-Delete Lifecycle, Passive Historical Inspection Without SLM Invocation, and Chat Studio Continuation Integration)
+
+### Upcoming Roadmap (Steps 42–90):
+- **Step 42:** Telemetry Dashboard & Operational Overview
 
 ---
 
@@ -184,9 +194,9 @@ All development, verification, and testing scripts are deterministic and cross-c
 | `run.bat` | Interactive Windows console launcher with environment diagnostics. |
 | `npm run dev` | Starts the Vite development server with Hot Module Replacement on port `1420`. |
 | `npm run typecheck` | Executes strict TypeScript compilation check (`tsc --noEmit`) across all modules and tests. |
-| `npm test` | Runs the Node.js native unit test runner (`node --test`) across **all 277 contract and logic tests**. |
+| `npm test` | Runs the Node.js native unit test runner (`node --test`) across **all 427 contract and logic tests** across 219 suites. |
 | `npm run build` | Compiles TypeScript and creates an optimized production bundle in `dist/`. |
-| `npm run validate` | Runs the full pipeline: **`typecheck` + `test` (277 tests) + `build`**. |
+| `npm run validate` | Runs the full pipeline: **`typecheck` + `test` (427 tests) + `build`**. |
 | `npm run tauri:dev` | Compiles Rust native core and launches native Tauri desktop application. |
 | `npm run tauri:build` | Generates a production Windows desktop installer (`.msi` / `.exe`). |
 
@@ -208,6 +218,8 @@ Nano Router SLM (Working)/
 ├── docs/                               # Architectural blueprints and engineering specs
 │   └── project/
 │       ├── NANO_ROUTE_ARCHITECTURE.md  # Master architecture specification
+│       ├── NANO_ROUTE_ERROR_CLASSIFICATION.md # Step 36: Error taxonomy, sanitization & failure handling
+│       ├── NANO_ROUTE_STREAMING_IMPLEMENTATION.md # Step 33: Streaming response engine & live transport
 │       ├── NANO_ROUTE_ROUTING_POLICY.md # Step 30: Routing policy, overrides & precedence
 │       ├── NANO_ROUTE_ROUTING_SCORING.md # Step 29: 11-factor scoring engine
 │       ├── NANO_ROUTE_TASK_ANALYSIS.md # Step 28: Multidimensional task analysis

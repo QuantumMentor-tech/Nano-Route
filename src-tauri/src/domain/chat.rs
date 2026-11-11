@@ -51,6 +51,20 @@ pub struct ChatMessageMetadata {
     pub completion_tokens: u32,
     pub latency_ms: u64,
     pub cost_usd: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failover_used: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failover_from_provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failover_from_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failover_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failover_attempts: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_count: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_attempts: Option<u32>,
 }
 
 /// Durable chat session entity representing a conversation thread.

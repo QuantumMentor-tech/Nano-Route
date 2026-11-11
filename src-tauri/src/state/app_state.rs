@@ -10,7 +10,7 @@ use crate::providers::{
 };
 use crate::services::{
     AppService, AppSettingsService, ChatService, CredentialVaultService, HealthService,
-    ProviderPreferencesService, StreamCoordinator, TelemetryService,
+    HistoryService, ProviderPreferencesService, StreamCoordinator, TelemetryService,
 };
 use crate::storage::DatabaseManager;
 
@@ -21,6 +21,7 @@ pub struct AppState {
     pub stream_coordinator: Arc<StreamCoordinator>,
     pub database_manager: Arc<DatabaseManager>,
     pub chat_service: Arc<ChatService>,
+    pub history_service: Arc<HistoryService>,
     pub telemetry_service: Arc<TelemetryService>,
     pub credential_vault: Arc<CredentialVaultService>,
     pub app_settings: Arc<AppSettingsService>,
@@ -35,6 +36,10 @@ pub struct AppState {
     pub task_analyzer: Arc<crate::analysis::TaskAnalyzer>,
     pub routing_scoring_engine: Arc<crate::routing::RoutingScoringEngine>,
     pub routing_policy_engine: Arc<crate::routing::RoutingPolicyEngine>,
+    pub provider_resolver: Arc<crate::providers::resolver::ProviderResolver>,
+    pub chat_orchestrator: Arc<crate::services::ChatOrchestrator>,
+    pub routing_explanation_service: Arc<crate::routing::RoutingExplanationService>,
+    pub execution_manager: Arc<crate::services::execution::ExecutionManager>,
     pub initialized_at: RwLock<Option<String>>,
 }
 
@@ -46,6 +51,7 @@ impl AppState {
         stream_coordinator: Arc<StreamCoordinator>,
         database_manager: Arc<DatabaseManager>,
         chat_service: Arc<ChatService>,
+        history_service: Arc<HistoryService>,
         telemetry_service: Arc<TelemetryService>,
         credential_vault: Arc<CredentialVaultService>,
         app_settings: Arc<AppSettingsService>,
@@ -60,6 +66,10 @@ impl AppState {
         task_analyzer: Arc<crate::analysis::TaskAnalyzer>,
         routing_scoring_engine: Arc<crate::routing::RoutingScoringEngine>,
         routing_policy_engine: Arc<crate::routing::RoutingPolicyEngine>,
+        provider_resolver: Arc<crate::providers::resolver::ProviderResolver>,
+        chat_orchestrator: Arc<crate::services::ChatOrchestrator>,
+        routing_explanation_service: Arc<crate::routing::RoutingExplanationService>,
+        execution_manager: Arc<crate::services::execution::ExecutionManager>,
     ) -> Self {
         Self {
             app_service,
@@ -68,6 +78,7 @@ impl AppState {
             stream_coordinator,
             database_manager,
             chat_service,
+            history_service,
             telemetry_service,
             credential_vault,
             app_settings,
@@ -82,6 +93,10 @@ impl AppState {
             task_analyzer,
             routing_scoring_engine,
             routing_policy_engine,
+            provider_resolver,
+            chat_orchestrator,
+            routing_explanation_service,
+            execution_manager,
             initialized_at: RwLock::new(None),
         }
     }

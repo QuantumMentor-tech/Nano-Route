@@ -9,6 +9,7 @@ pub mod errors;
 pub mod inference;
 pub mod infrastructure;
 pub mod providers;
+pub mod reliability;
 pub mod routing;
 pub mod security;
 pub mod services;
@@ -43,6 +44,19 @@ pub fn run() {
             commands::cmd_get_chat_messages,
             commands::cmd_get_chat_conversation,
             commands::cmd_delete_chat_message,
+            commands::cmd_list_history_sessions,
+            commands::cmd_search_history,
+            commands::cmd_get_history_filter_options,
+            commands::cmd_delete_history_sessions_bulk,
+            commands::cmd_rebuild_history_search_index,
+            commands::cmd_submit_chat_prompt,
+            commands::cmd_stream_chat_prompt,
+            commands::cmd_cancel_chat_execution,
+            commands::cmd_cancel_session_chat,
+            commands::cmd_get_execution_state,
+            commands::cmd_preflight_check,
+            commands::cmd_get_quota_snapshot,
+            commands::cmd_classify_error,
             commands::cmd_record_telemetry_event,
             commands::cmd_list_telemetry_records,
             commands::cmd_get_telemetry_aggregates,
@@ -92,6 +106,7 @@ pub fn run() {
             commands::cmd_get_routing_policy_config,
             commands::cmd_update_routing_policy_config,
             commands::cmd_validate_manual_override,
+            commands::cmd_get_routing_explanation,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
