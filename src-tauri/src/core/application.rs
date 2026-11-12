@@ -112,6 +112,15 @@ impl Application {
             telemetry_service.clone(),
         ));
 
+        // Initialize Step 45 Data Lifecycle, Audit, Retention & Privacy Service
+        let data_lifecycle_service = Arc::new(crate::services::DataLifecycleService::new(
+            database_manager.clone(),
+            app_settings.clone(),
+            credential_vault.clone(),
+            execution_manager.clone(),
+            provider_health_manager.clone(),
+        ));
+
         let state = AppState::new(
             app_service,
             health_service,
@@ -138,6 +147,7 @@ impl Application {
             chat_orchestrator,
             routing_explanation_service,
             execution_manager,
+            data_lifecycle_service,
         );
         state.mark_initialized("2026-11-07T00:00:00Z");
 

@@ -11,7 +11,7 @@ use crate::providers::descriptor::{
     ProviderDescriptor, ProviderImplementationState, ProviderLifecycleState,
 };
 use crate::providers::identity::ProviderId;
-use crate::providers::models::{ModelAvailability, ProviderModel};
+use crate::providers::models::{ModelAvailability, ModelPricing, ProviderModel};
 
 /// Produces the complete catalog of built-in providers and models.
 pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
@@ -56,6 +56,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
                 .with_capability(ProviderCapability::CodeGeneration),
         )
         .with_description("Omni-model supporting text, image, and high-speed execution.")
+        .with_pricing(ModelPricing::usd(2.50, 10.00))
         .with_max_output_tokens(4096)
         .with_default(true),
     );
@@ -73,6 +74,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
                 .with_capability(ProviderCapability::CodeGeneration),
         )
         .with_description("Lightweight, cost-efficient model for fast, high-volume tasks.")
+        .with_pricing(ModelPricing::usd(0.15, 0.60))
         .with_max_output_tokens(16384),
     );
 
@@ -93,6 +95,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
             ]),
         )
         .with_description("Advanced reasoning model for complex STEM, logic, and multi-step reasoning.")
+        .with_pricing(ModelPricing::usd(15.00, 60.00))
         .with_max_output_tokens(100_000),
     );
 
@@ -113,6 +116,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
             ]),
         )
         .with_description("Fast, cost-effective reasoning model optimized for coding and math.")
+        .with_pricing(ModelPricing::usd(1.10, 4.40))
         .with_max_output_tokens(100_000),
     );
 
@@ -153,6 +157,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
                 .with_capability(ProviderCapability::CodeGeneration),
         )
         .with_description("State-of-the-art model for complex analysis, software engineering, and vision.")
+        .with_pricing(ModelPricing::usd(3.00, 15.00))
         .with_max_output_tokens(8192)
         .with_default(true),
     );
@@ -170,6 +175,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
                 .with_capability(ProviderCapability::CodeGeneration),
         )
         .with_description("Fast, lightweight model with high intelligence and near-instant responsiveness.")
+        .with_pricing(ModelPricing::usd(0.80, 4.00))
         .with_max_output_tokens(8192),
     );
 
@@ -185,6 +191,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
                 .with_capability(ProviderCapability::LargeContext),
         )
         .with_description("High-capability foundational model for deep research and writing.")
+        .with_pricing(ModelPricing::usd(15.00, 75.00))
         .with_max_output_tokens(4096),
     );
 
@@ -227,6 +234,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
                 .with_capability(ProviderCapability::CodeGeneration),
         )
         .with_description("Massive 2M token context window for large codebases, video, and audio.")
+        .with_pricing(ModelPricing::usd(1.25, 5.00))
         .with_max_output_tokens(8192)
         .with_default(true),
     );
@@ -245,6 +253,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
                 .with_capability(ProviderCapability::CodeGeneration),
         )
         .with_description("Ultra-fast multimodal model built for low latency and high frequency tasks.")
+        .with_pricing(ModelPricing::usd(0.075, 0.30))
         .with_max_output_tokens(8192),
     );
 
@@ -261,6 +270,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
                 .with_capability(ProviderCapability::CodeGeneration),
         )
         .with_description("Next-generation multimodal model with enhanced speed and native tool use.")
+        .with_pricing(ModelPricing::usd(0.10, 0.40))
         .with_max_output_tokens(8192)
         .with_availability(ModelAvailability::Preview),
     );
@@ -299,6 +309,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
                 .with_capability(ProviderCapability::LargeContext),
         )
         .with_description("General chat and programming model with strong multi-task performance.")
+        .with_pricing(ModelPricing::usd(0.27, 1.10))
         .with_max_output_tokens(8192)
         .with_default(true),
     );
@@ -319,6 +330,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
             ]),
         )
         .with_description("Open reasoning model with transparent chain-of-thought tokens.")
+        .with_pricing(ModelPricing::usd(0.55, 2.19))
         .with_max_output_tokens(8192),
     );
 
@@ -355,6 +367,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
                 .with_capability(ProviderCapability::LargeContext),
         )
         .with_description("Flagship Llama 3.3 executed with extreme speed on Groq LPUs.")
+        .with_pricing(ModelPricing::usd(0.59, 0.79))
         .with_max_output_tokens(32768)
         .with_default(true),
     );
@@ -370,6 +383,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
                 .with_capability(ProviderCapability::LargeContext),
         )
         .with_description("Ultra-low-latency 8B model for rapid routing and sub-second generation.")
+        .with_pricing(ModelPricing::usd(0.05, 0.08))
         .with_max_output_tokens(8192),
     );
 
@@ -406,6 +420,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
                 .with_capability(ProviderCapability::LargeContext),
         )
         .with_description("Top-tier reasoning and coding model with multilingual mastery.")
+        .with_pricing(ModelPricing::usd(2.00, 6.00))
         .with_max_output_tokens(8192)
         .with_default(true),
     );
@@ -419,6 +434,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
             ProviderCapabilities::standard_chat().with_capability(ProviderCapability::CodeGeneration),
         )
         .with_description("Fast, lightweight model for everyday coding and conversational tasks.")
+        .with_pricing(ModelPricing::usd(0.20, 0.60))
         .with_max_output_tokens(8192),
     );
 
@@ -437,6 +453,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
             ]),
         )
         .with_description("Specialized code generation model with a 256k token context window.")
+        .with_pricing(ModelPricing::usd(0.20, 0.60))
         .with_max_output_tokens(8192),
     );
 
@@ -473,6 +490,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
             ]),
         )
         .with_description("Lightweight local SLM for zero-cost routing and private inference.")
+        .with_pricing(ModelPricing::usd(0.00, 0.00))
         .with_max_output_tokens(4096)
         .with_default(true),
     );
@@ -491,6 +509,7 @@ pub fn builtin_catalog() -> (Vec<ProviderDescriptor>, Vec<ProviderModel>) {
             ]),
         )
         .with_description("Capable local programming model with 32k context.")
+        .with_pricing(ModelPricing::usd(0.00, 0.00))
         .with_max_output_tokens(8192),
     );
 

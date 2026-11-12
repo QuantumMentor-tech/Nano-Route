@@ -9,8 +9,8 @@ use crate::providers::{
     ProviderRegistry,
 };
 use crate::services::{
-    AppService, AppSettingsService, ChatService, CredentialVaultService, HealthService,
-    HistoryService, ProviderPreferencesService, StreamCoordinator, TelemetryService,
+    AppService, AppSettingsService, ChatService, CredentialVaultService, DataLifecycleService,
+    HealthService, HistoryService, ProviderPreferencesService, StreamCoordinator, TelemetryService,
 };
 use crate::storage::DatabaseManager;
 
@@ -40,6 +40,7 @@ pub struct AppState {
     pub chat_orchestrator: Arc<crate::services::ChatOrchestrator>,
     pub routing_explanation_service: Arc<crate::routing::RoutingExplanationService>,
     pub execution_manager: Arc<crate::services::execution::ExecutionManager>,
+    pub data_lifecycle_service: Arc<DataLifecycleService>,
     pub initialized_at: RwLock<Option<String>>,
 }
 
@@ -70,6 +71,7 @@ impl AppState {
         chat_orchestrator: Arc<crate::services::ChatOrchestrator>,
         routing_explanation_service: Arc<crate::routing::RoutingExplanationService>,
         execution_manager: Arc<crate::services::execution::ExecutionManager>,
+        data_lifecycle_service: Arc<DataLifecycleService>,
     ) -> Self {
         Self {
             app_service,
@@ -97,6 +99,7 @@ impl AppState {
             chat_orchestrator,
             routing_explanation_service,
             execution_manager,
+            data_lifecycle_service,
             initialized_at: RwLock::new(None),
         }
     }

@@ -4,10 +4,9 @@ import {
   RuntimeStatusCard,
   QuickActions,
   CapabilityOverview,
-  MetricsOverview,
-  RecentActivity,
   DiagnosticDisclosure,
 } from "../features/dashboard";
+import { TelemetryDashboard } from "../features/telemetry";
 
 export const DashboardPage: React.FC = () => {
   return (
@@ -16,7 +15,7 @@ export const DashboardPage: React.FC = () => {
       style={{
         margin: "0 auto",
         width: "100%",
-        maxWidth: "960px",
+        maxWidth: "1280px",
         paddingBottom: "3rem",
       }}
     >
@@ -29,16 +28,15 @@ export const DashboardPage: React.FC = () => {
       {/* 3. Primary Quick Actions */}
       <QuickActions />
 
-      {/* 4. Truthful System Capability Overview */}
+      {/* 4. Step 42 Operational Telemetry & Local Routing Analytics Workspace */}
+      <div style={{ marginBottom: "2.25rem" }}>
+        <TelemetryDashboard />
+      </div>
+
+      {/* 5. Truthful System Capability Overview */}
       <CapabilityOverview />
 
-      {/* 5. Metrics Overview (Truthful Empty State) */}
-      <MetricsOverview />
-
-      {/* 6. Recent Activity (Truthful Empty State) */}
-      <RecentActivity />
-
-      {/* 7. Diagnostic Baseline Disclosure (Step 2-7 Continuity) */}
+      {/* 6. Diagnostic Baseline Disclosure (Step 2-7 Continuity) */}
       <DiagnosticDisclosure />
     </div>
   );

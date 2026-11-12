@@ -6,7 +6,10 @@
 // Validates parameters and delegates directly to TelemetryService.
 // ============================================================================
 
-use crate::domain::{TelemetryAggregateReport, TelemetryFilter, TelemetryRecord};
+use crate::domain::{
+    TelemetryAggregateReport, TelemetryDashboardFilters, TelemetryDashboardSnapshot,
+    TelemetryFilter, TelemetryFinancialAnalytics, TelemetryPerformanceAnalytics, TelemetryRecord,
+};
 use crate::services::RecordTelemetryInput;
 use crate::state::AppState;
 use tauri::State;
@@ -49,6 +52,42 @@ pub async fn cmd_get_telemetry_aggregates(
         .map_err(|e| e.to_string())
 }
 
+/// Computes a coherent read-only Step 42 & Step 43 Telemetry Dashboard snapshot.
+#[tauri::command]
+pub async fn cmd_get_telemetry_dashboard_snapshot(
+    filters: Option<TelemetryDashboardFilters>,
+    state: State<'_, AppState>,
+) -> Result<TelemetryDashboardSnapshot, String> {
+    state
+        .telemetry_service
+        .get_dashboard_snapshot(filters.unwrap_or_default())
+        .map_err(|e| e.to_string())
+}
+
+/// Computes a coherent read-only Step 43 Token Usage, Cost Analytics & Routing Savings snapshot.
+#[tauri::command]
+pub async fn cmd_get_telemetry_cost_analytics_snapshot(
+    filters: Option<TelemetryDashboardFilters>,
+    state: State<'_, AppState>,
+) -> Result<TelemetryFinancialAnalytics, String> {
+    state
+        .telemetry_service
+        .get_cost_analytics_snapshot(filters.unwrap_or_default())
+        .map_err(|e| e.to_string())
+}
+
+/// Computes a coherent read-only Step 44 Latency, Execution Performance & Benchmark Analytics snapshot.
+#[tauri::command]
+pub async fn cmd_get_telemetry_performance_analytics_snapshot(
+    filters: Option<TelemetryDashboardFilters>,
+    state: State<'_, AppState>,
+) -> Result<TelemetryPerformanceAnalytics, String> {
+    state
+        .telemetry_service
+        .get_performance_analytics_snapshot(filters.unwrap_or_default())
+        .map_err(|e| e.to_string())
+}
+
 /// Clears all telemetry records (supports local data wipe).
 #[tauri::command]
 pub async fn cmd_clear_telemetry(
@@ -59,4 +98,3 @@ pub async fn cmd_clear_telemetry(
         .clear_all()
         .map_err(|e| e.to_string())
 }
-

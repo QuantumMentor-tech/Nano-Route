@@ -28,6 +28,7 @@ pub mod mock;
 pub mod models;
 pub mod openai;
 pub mod preflight;
+pub mod pricing;
 pub mod probe;
 pub mod registry;
 pub mod request;
@@ -66,6 +67,12 @@ pub use mock::{MockProviderClient, MockProviderDynamicConfig};
 pub use models::{ModelAvailability, ModelPricing, ProviderModel};
 pub use openai::OpenAiClient;
 pub use preflight::{PreflightBlockReason, PreflightEvaluation, PreflightEvaluator};
+pub use pricing::{
+    builtin_versioned_pricing_table, canonicalize_pricing_model_id,
+    canonicalize_pricing_provider_id, compute_token_cost_nano_usd, nano_usd_to_f64,
+    resolve_versioned_model_pricing, usd_to_nano_usd, VersionedModelPricingEntry,
+    DEFAULT_BASELINE_MODEL_ID, DEFAULT_BASELINE_PROVIDER_ID, NANO_USD_PER_DOLLAR,
+};
 pub use probe::{
     DefaultHealthProbeRunner, HealthCheckResult, HealthProbeRunner, ProviderHealthProbeService,
 };

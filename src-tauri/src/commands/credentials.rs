@@ -92,6 +92,4 @@ pub async fn cmd_delete_provider_credential(
 
     Ok(res)
 }
-        .map_err(|e| e.to_string())
-}
 

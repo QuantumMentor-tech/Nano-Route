@@ -8,7 +8,7 @@ import {
   Mail,
   type LucideIcon,
 } from "lucide-react";
-import { ROUTE_PATHS } from "./routePaths";
+import { ROUTE_PATHS } from "./routePaths.ts";
 
 export type NavigationSectionId = "workspace" | "application";
 

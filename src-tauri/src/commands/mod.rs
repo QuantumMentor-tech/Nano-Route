@@ -14,6 +14,7 @@ pub mod diagnostics;
 pub mod health;
 pub mod history;
 pub mod local_slm;
+pub mod privacy;
 pub mod provider_health;
 pub mod registry;
 pub mod routing_explanation;
@@ -24,7 +25,7 @@ pub mod streaming;
 pub mod task_analysis;
 pub mod telemetry;
 
-pub use app::cmd_get_app_info;
+pub use app::{cmd_get_app_info, cmd_get_license_info};
 pub use chat::{
     cmd_append_chat_message, cmd_cancel_chat_execution, cmd_cancel_session_chat,
     cmd_classify_error, cmd_create_chat_session, cmd_delete_chat_message,
@@ -53,6 +54,11 @@ pub use local_slm::{
     cmd_initialize_local_runtime, cmd_load_router_model, cmd_run_local_inference,
     cmd_unload_router_model,
 };
+pub use privacy::{
+    cmd_get_data_inventory, cmd_get_retention_policy, cmd_preview_data_cleanup,
+    cmd_preview_full_data_wipe, cmd_run_data_audit, cmd_run_data_cleanup,
+    cmd_run_full_data_wipe, cmd_run_safe_data_repair, cmd_update_retention_policy,
+};
 pub use provider_health::{
     cmd_check_provider_health, cmd_get_all_provider_health, cmd_get_model_capabilities,
     cmd_get_provider_capabilities, cmd_get_provider_health, cmd_preflight_provider_request,
@@ -72,12 +78,15 @@ pub use routing_scoring::{
 };
 pub use settings::{
     cmd_get_app_setting, cmd_get_app_settings, cmd_get_provider_preferences,
-    cmd_list_provider_preferences, cmd_reset_app_setting, cmd_reset_provider_preferences,
-    cmd_set_app_setting, cmd_update_provider_preferences,
+    cmd_get_settings_workspace_snapshot, cmd_list_provider_preferences, cmd_reset_all_settings,
+    cmd_reset_app_setting, cmd_reset_provider_preferences, cmd_set_app_setting,
+    cmd_update_provider_preferences,
 };
 pub use streaming::{cmd_cancel_stream, cmd_get_stream_status, cmd_start_stream};
 pub use task_analysis::{cmd_analyze_task, cmd_get_task_analyzer_status};
 pub use telemetry::{
-    cmd_clear_telemetry, cmd_get_telemetry_aggregates, cmd_list_telemetry_records,
+    cmd_clear_telemetry, cmd_get_telemetry_aggregates,
+    cmd_get_telemetry_cost_analytics_snapshot, cmd_get_telemetry_dashboard_snapshot,
+    cmd_get_telemetry_performance_analytics_snapshot, cmd_list_telemetry_records,
     cmd_record_telemetry_event,
 };

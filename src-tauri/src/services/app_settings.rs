@@ -73,6 +73,39 @@ impl AppSettingsService {
                     )))
                 }
             }
+            AppSettingKey::ManualOverrideEnabled => {
+                let lower = trimmed.to_lowercase();
+                if lower == "true" || lower == "false" {
+                    Ok(lower)
+                } else {
+                    Err(AppError::InvalidInput(format!(
+                        "Invalid boolean value '{}' for routing.manual_override_enabled. Allowed: [true, false]",
+                        trimmed
+                    )))
+                }
+            }
+            AppSettingKey::ManualOverrideProvider => {
+                if trimmed.is_empty() {
+                    Ok(String::new())
+                } else if trimmed.len() > 64 {
+                    Err(AppError::InvalidInput(
+                        "Manual override provider ID exceeds maximum permitted length of 64 characters".to_string(),
+                    ))
+                } else {
+                    Ok(trimmed.to_string())
+                }
+            }
+            AppSettingKey::ManualOverrideModel => {
+                if trimmed.is_empty() {
+                    Ok(String::new())
+                } else if trimmed.len() > 128 {
+                    Err(AppError::InvalidInput(
+                        "Manual override model ID exceeds maximum permitted length of 128 characters".to_string(),
+                    ))
+                } else {
+                    Ok(trimmed.to_string())
+                }
+            }
         }
     }
 
@@ -148,6 +181,22 @@ impl AppSettingsService {
             }
         }
 
+        if let Some(val) = raw_map.get(AppSettingKey::ManualOverrideEnabled.as_key_str()) {
+            if val.eq_ignore_ascii_case("true") {
+                snapshot.manual_override_enabled = true;
+            } else if val.eq_ignore_ascii_case("false") {
+                snapshot.manual_override_enabled = false;
+            }
+        }
+
+        if let Some(val) = raw_map.get(AppSettingKey::ManualOverrideProvider.as_key_str()) {
+            snapshot.manual_override_provider = val.clone();
+        }
+
+        if let Some(val) = raw_map.get(AppSettingKey::ManualOverrideModel.as_key_str()) {
+            snapshot.manual_override_model = val.clone();
+        }
+
         Ok(snapshot)
     }
 
@@ -170,6 +219,9 @@ impl AppSettingsService {
             AppSettingKey::TelemetryEnabled => default_snapshot.telemetry_enabled.to_string(),
             AppSettingKey::HistoryRetentionDays => default_snapshot.history_retention_days.to_string(),
             AppSettingKey::WindowStartMaximized => default_snapshot.window_start_maximized.to_string(),
+            AppSettingKey::ManualOverrideEnabled => default_snapshot.manual_override_enabled.to_string(),
+            AppSettingKey::ManualOverrideProvider => default_snapshot.manual_override_provider,
+            AppSettingKey::ManualOverrideModel => default_snapshot.manual_override_model,
         };
 
         Ok(default_val)

@@ -43,6 +43,8 @@ import type {
 export interface UseHistoryExplorerOptions {
   pageSize?: number;
   debounceMs?: number;
+  initialProviderFilter?: string;
+  initialModelFilter?: string;
 }
 
 export function useHistoryExplorer(options: UseHistoryExplorerOptions = {}) {
@@ -53,8 +55,12 @@ export function useHistoryExplorer(options: UseHistoryExplorerOptions = {}) {
   const [searchInput, setSearchInputState] = useState<string>("");
   const [debouncedQuery, setDebouncedQuery] = useState<string>("");
   const [sortMode, setSortMode] = useState<HistorySortMode>("pinned_first");
-  const [providerFilter, setProviderFilter] = useState<string>("");
-  const [modelFilter, setModelFilter] = useState<string>("");
+  const [providerFilter, setProviderFilter] = useState<string>(
+    options.initialProviderFilter ?? ""
+  );
+  const [modelFilter, setModelFilter] = useState<string>(
+    options.initialModelFilter ?? ""
+  );
   const [pinnedOnly, setPinnedOnly] = useState<boolean>(false);
   const [datePreset, setDatePreset] = useState<HistoryDatePreset>("all");
   const [customDateFrom, setCustomDateFrom] = useState<string>("");

@@ -199,6 +199,14 @@ impl DatabaseManager {
         &self.initialization_report
     }
 
+    /// Returns a human-readable display string for the database location.
+    pub fn database_path_display(&self) -> String {
+        match &self.database_path {
+            Some(p) => p.display().to_string(),
+            None => ":memory:".to_string(),
+        }
+    }
+
     /// Performs safe database shutdown by committing any pending work and checkpointing WAL.
     pub fn shutdown(&self) -> Result<(), DatabaseError> {
         self.with_connection(|conn| {

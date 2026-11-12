@@ -10,6 +10,7 @@
 import { safeInvoke, isTauriContext, generateRequestId } from "./client.ts";
 import { IpcError } from "./errors.ts";
 import { __internalGetMockChatStore } from "./chat.ts";
+import { __internalDeleteMockTelemetryBySession } from "./telemetry.ts";
 import {
   IPC_COMMANDS,
   type BulkDeleteResult,
@@ -631,6 +632,7 @@ export async function deleteHistorySessionsBulk(
     for (const sid of sanitizedIds) {
       if (store.sessions.delete(sid)) {
         store.messages.delete(sid);
+        __internalDeleteMockTelemetryBySession(sid);
         deletedSessionIds.push(sid);
       } else {
         missingSessionIds.push(sid);

@@ -27,6 +27,10 @@ export function resetCredentialMockStore(): void {
   mockStatuses.clear();
 }
 
+export function __internalGetMockCredentialStore(): Map<string, ProviderCredentialStatus> {
+  return mockStatuses;
+}
+
 // ============================================================================
 // Input Validation Helpers
 // ============================================================================

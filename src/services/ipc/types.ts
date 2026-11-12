@@ -127,6 +127,7 @@ export const IPC_COMMANDS = {
   HEALTH_CHECK: "cmd_health_check",
   GET_HEALTH: "cmd_get_health",
   GET_APP_INFO: "cmd_get_app_info",
+  GET_LICENSE_INFO: "cmd_get_license_info",
   PING: "cmd_ping",
   START_STREAM: "cmd_start_stream",
   CANCEL_STREAM: "cmd_cancel_stream",
@@ -157,6 +158,10 @@ export const IPC_COMMANDS = {
   RECORD_TELEMETRY_EVENT: "cmd_record_telemetry_event",
   LIST_TELEMETRY_RECORDS: "cmd_list_telemetry_records",
   GET_TELEMETRY_AGGREGATES: "cmd_get_telemetry_aggregates",
+  GET_TELEMETRY_DASHBOARD_SNAPSHOT: "cmd_get_telemetry_dashboard_snapshot",
+  GET_TELEMETRY_COST_ANALYTICS_SNAPSHOT: "cmd_get_telemetry_cost_analytics_snapshot",
+  GET_TELEMETRY_PERFORMANCE_ANALYTICS_SNAPSHOT:
+    "cmd_get_telemetry_performance_analytics_snapshot",
   CLEAR_TELEMETRY: "cmd_clear_telemetry",
   SAVE_PROVIDER_CREDENTIAL: "cmd_save_provider_credential",
   GET_PROVIDER_CREDENTIAL_STATUS: "cmd_get_provider_credential_status",
@@ -167,6 +172,8 @@ export const IPC_COMMANDS = {
   GET_APP_SETTING: "cmd_get_app_setting",
   SET_APP_SETTING: "cmd_set_app_setting",
   RESET_APP_SETTING: "cmd_reset_app_setting",
+  RESET_ALL_SETTINGS: "cmd_reset_all_settings",
+  GET_SETTINGS_WORKSPACE_SNAPSHOT: "cmd_get_settings_workspace_snapshot",
   GET_PROVIDER_PREFERENCES: "cmd_get_provider_preferences",
   LIST_PROVIDER_PREFERENCES: "cmd_list_provider_preferences",
   UPDATE_PROVIDER_PREFERENCES: "cmd_update_provider_preferences",
@@ -205,6 +212,15 @@ export const IPC_COMMANDS = {
   VALIDATE_MANUAL_OVERRIDE: "cmd_validate_manual_override",
   GET_ROUTING_EXPLANATION: "cmd_get_routing_explanation",
   CLASSIFY_ERROR: "cmd_classify_error",
+  GET_DATA_INVENTORY: "cmd_get_data_inventory",
+  RUN_DATA_AUDIT: "cmd_run_data_audit",
+  RUN_SAFE_DATA_REPAIR: "cmd_run_safe_data_repair",
+  GET_RETENTION_POLICY: "cmd_get_retention_policy",
+  UPDATE_RETENTION_POLICY: "cmd_update_retention_policy",
+  PREVIEW_DATA_CLEANUP: "cmd_preview_data_cleanup",
+  RUN_DATA_CLEANUP: "cmd_run_data_cleanup",
+  PREVIEW_FULL_DATA_WIPE: "cmd_preview_full_data_wipe",
+  RUN_FULL_DATA_WIPE: "cmd_run_full_data_wipe",
 } as const;
 
 export type IpcCommandName = (typeof IPC_COMMANDS)[keyof typeof IPC_COMMANDS];
@@ -315,9 +331,12 @@ export type ModelAvailability =
   | "Offline";
 
 export interface ModelPricing {
-  promptCostPerMtokenUsd: number;
-  completionCostPerMtokenUsd: number;
-  isFree: boolean;
+  promptCostPerMtokenUsd?: number;
+  completionCostPerMtokenUsd?: number;
+  isFree?: boolean;
+  inputCostPerMillion?: number;
+  outputCostPerMillion?: number;
+  currency?: string;
 }
 
 export interface ProviderModel {
@@ -969,13 +988,65 @@ export type AppSettingKeyString =
   | "routing.preference_mode"
   | "telemetry.enabled"
   | "history.retention_days"
-  | "window.start_maximized";
+  | "window.start_maximized"
+  | "routing.manual_override_enabled"
+  | "routing.manual_override_provider"
+  | "routing.manual_override_model";
 
 export interface AppSettingsSnapshot {
   routingPreferenceMode: RoutingPreferenceMode;
   telemetryEnabled: boolean;
   historyRetentionDays: number;
   windowStartMaximized: boolean;
+  manualOverrideEnabled?: boolean;
+  manualOverrideProvider?: string;
+  manualOverrideModel?: string;
+}
+
+export interface ProviderSettingsSummaryDto {
+  providerId: string;
+  displayName: string;
+  description: string;
+  defaultBaseUrl: string;
+  documentationUrl?: string | null;
+  configuredBaseUrl?: string | null;
+  isConfigured: boolean;
+  isActive: boolean;
+  priorityWeight: number;
+  monthlyBudgetLimit?: number | null;
+  currentMonthSpend: number;
+  healthState: string;
+  healthCheckedAtMs?: number | null;
+  modelCount: number;
+  defaultModelId: string;
+  capabilities: string[];
+}
+
+export interface ModelSettingsSummaryDto {
+  providerId: string;
+  modelId: string;
+  displayName: string;
+  isActive: boolean;
+  contextWindow: number;
+  maxOutputTokens: number;
+  isDefault: boolean;
+  capabilities: string[];
+}
+
+export interface SecurityStatusSummaryDto {
+  dpapiProtectionActive: boolean;
+  localStorageType: string;
+  plaintextKeysProhibited: boolean;
+  remoteSyncDisabled: boolean;
+  lastAuditTimeMs?: number | null;
+}
+
+export interface SettingsWorkspaceSnapshotDto {
+  appSettings: AppSettingsSnapshot;
+  providers: ProviderSettingsSummaryDto[];
+  models: ModelSettingsSummaryDto[];
+  routingPolicy: RoutingPolicyConfigDto;
+  securityStatus: SecurityStatusSummaryDto;
 }
 
 export interface UpdateProviderPreferencesRequest {
@@ -2064,6 +2135,829 @@ export interface BulkDeleteResult {
   deletedSessionIds: string[];
   missingSessionIds: string[];
 }
+
+// ============================================================================
+// --- Step 42: Telemetry Dashboard & Operational Routing Insights Contracts ---
+// ============================================================================
+
+export type TelemetryTimeBucket = "hour" | "day";
+
+export interface TelemetryDashboardFilters {
+  startTime?: number | null;
+  endTime?: number | null;
+  timeBucket?: TelemetryTimeBucket | null;
+  providerId?: string | null;
+  modelId?: string | null;
+  outcome?: string | null;
+  eventType?: TelemetryEventType | null;
+  queryId?: string | null;
+  baselineProviderId?: string | null;
+  baselineModelId?: string | null;
+}
+
+export interface TelemetryDashboardSummary {
+  totalRoutedRequests: number;
+  successfulExecutions: number;
+  failedExecutions: number;
+  cancelledExecutions: number;
+  fallbackExecutions: number;
+  terminalExecutions: number;
+  successRatePercent: number | null;
+}
+
+export interface TelemetryTimeSeriesPoint {
+  bucketStartMs: number;
+  bucketLabel: string;
+  requestCount: number;
+  successCount: number;
+  failureCount: number;
+  cancelledCount: number;
+}
+
+export interface TelemetryProviderSummary {
+  providerId: string;
+  displayName: string;
+  isHistoricalOrUnrecorded: boolean;
+  requestCount: number;
+  successCount: number;
+  failureCount: number;
+  cancelledCount: number;
+  percentageOfTotal: number | null;
+}
+
+export interface TelemetryModelSummary {
+  providerId: string;
+  providerDisplayName: string;
+  modelId: string;
+  isHistoricalOrUnrecorded: boolean;
+  requestCount: number;
+  successCount: number;
+  failureCount: number;
+  cancelledCount: number;
+  percentageOfTotal: number | null;
+}
+
+export interface TelemetryOutcomeSummary {
+  outcome: string;
+  label: string;
+  count: number;
+  percentageOfTotal: number | null;
+}
+
+export interface TelemetryRetryFailoverSummary {
+  failoverDataAvailable: boolean;
+  failoverInvolvedCount: number;
+  fallbackSuccessCount: number;
+  fallbackFailureCount: number;
+  timeoutOutcomeCount: number;
+  rateLimitedOutcomeCount: number;
+  retryDataAvailable: boolean;
+  retryExecutionCount: number | null;
+}
+
+export interface TelemetryConfidenceBucket {
+  bucketKey: string;
+  label: string;
+  minInclusive: number;
+  maxInclusive: number;
+  count: number;
+  percentageOfAvailable: number | null;
+}
+
+export interface TelemetryConfidenceDistribution {
+  availableCount: number;
+  missingCount: number;
+  minConfidence: number | null;
+  maxConfidence: number | null;
+  buckets: TelemetryConfidenceBucket[];
+}
+
+export interface TelemetryCompletenessSummary {
+  totalRecords: number;
+  providerRecordedCount: number;
+  providerRecordedPercent: number | null;
+  modelRecordedCount: number;
+  modelRecordedPercent: number | null;
+  outcomeRecordedCount: number;
+  outcomeRecordedPercent: number | null;
+  routingReasonRecordedCount: number;
+  routingReasonRecordedPercent: number | null;
+  confidenceRecordedCount: number;
+  confidenceRecordedPercent: number | null;
+  sessionCorrelationCount: number;
+  sessionCorrelationPercent: number | null;
+  completeMetadataCount: number;
+  completeMetadataPercent: number | null;
+  incompleteRecordsCount: number;
+  earliestRecordAtMs: number | null;
+  latestRecordAtMs: number | null;
+}
+
+export interface TelemetryProviderOption {
+  providerId: string;
+  displayName: string;
+  isHistorical: boolean;
+}
+
+export interface TelemetryModelOption {
+  providerId: string | null;
+  modelId: string;
+}
+
+export interface TelemetryFilterOptionsDto {
+  providers: TelemetryProviderOption[];
+  models: TelemetryModelOption[];
+  outcomes: string[];
+}
+
+export interface TelemetryDashboardSnapshot {
+  queryId?: string | null;
+  generatedAtMs: number;
+  appliedFilters: TelemetryDashboardFilters;
+  filterOptions: TelemetryFilterOptionsDto;
+  summary: TelemetryDashboardSummary;
+  timeSeries: TelemetryTimeSeriesPoint[];
+  providerDistribution: TelemetryProviderSummary[];
+  modelDistribution: TelemetryModelSummary[];
+  outcomeDistribution: TelemetryOutcomeSummary[];
+  retryFailover: TelemetryRetryFailoverSummary;
+  confidenceDistribution: TelemetryConfidenceDistribution;
+  completeness: TelemetryCompletenessSummary;
+  financialAnalytics: TelemetryFinancialAnalytics;
+  performanceAnalytics: TelemetryPerformanceAnalytics;
+}
+
+// ============================================================================
+// --- Step 43: Token Usage, Cost Analytics & Routing Savings Engine Contracts ---
+// ============================================================================
+
+export type TokenDataSource = "recorded" | "unavailable";
+
+export type CostAvailabilityState =
+  | "exact"
+  | "derived"
+  | "estimated"
+  | "unavailable"
+  | "not_applicable";
+
+export type SavingsComparisonStatus =
+  | "below_baseline"
+  | "at_baseline"
+  | "above_baseline"
+  | "unavailable";
+
+export interface TelemetryTokenSummary {
+  logicalRequestCount: number;
+  physicalAttemptCount: number;
+  duplicateOrIntermediateEventsExcluded: number;
+  inputTokensAvailableCount: number;
+  outputTokensAvailableCount: number;
+  bothTokensAvailableCount: number;
+  missingTokenRecordsCount: number;
+  totalInputTokens: number | null;
+  totalOutputTokens: number | null;
+  totalTokens: number | null;
+  tokenDataSource: TokenDataSource;
+}
+
+export interface TelemetryActualCostSummary {
+  currency: string;
+  costAvailabilityState: CostAvailabilityState;
+  eligibleAttemptCount: number;
+  eligibleLogicalRequestCount: number;
+  missingCostAttemptCount: number;
+  zeroCostAttemptCount: number;
+  totalActualCostUsd: number | null;
+  averageCostPerLogicalRequestUsd: number | null;
+  averageCostPerAttemptUsd: number | null;
+  costPerThousandTokensUsd: number | null;
+  costPerMillionTokensUsd: number | null;
+  costPerTokenCompatibleRecordCount: number;
+  costPerTokenCompatibleTotalTokens: number;
+}
+
+export interface TelemetryBaselineSummary {
+  baselineProviderId: string;
+  baselineProviderDisplayName: string;
+  baselineModelId: string;
+  baselineModelDisplayName: string;
+  methodology: string;
+  methodologyLabel: string;
+  pricingVersionUsed: string | null;
+  pricingVersionsUsed: string[];
+  baselineAvailable: boolean;
+  baselineCostUsd: number | null;
+}
+
+export interface TelemetrySavingsSummary {
+  savingsState: CostAvailabilityState;
+  comparisonStatus: SavingsComparisonStatus;
+  eligibleRecordCount: number;
+  ineligibleRecordCount: number;
+  missingTokenDataCount: number;
+  missingActualCostCount: number;
+  missingBaselinePricingCount: number;
+  eligibleActualCostUsd: number | null;
+  baselineCostUsd: number | null;
+  estimatedSavingsUsd: number | null;
+  savingsPercent: number | null;
+  allTimeEligibleRecordCount: number;
+  allTimeActualCostUsd: number | null;
+  allTimeBaselineCostUsd: number | null;
+  allTimeEstimatedSavingsUsd: number | null;
+  allTimeSavingsPercent: number | null;
+}
+
+export interface TelemetryTokenTrendPoint {
+  bucketStartMs: number;
+  bucketLabel: string;
+  attemptCount: number;
+  tokenEligibleCount: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+}
+
+export interface TelemetryCostTrendPoint {
+  bucketStartMs: number;
+  bucketLabel: string;
+  attemptCount: number;
+  costEligibleCount: number;
+  actualCostUsd: number | null;
+  savingsEligibleCount: number;
+  baselineCostUsd: number | null;
+  estimatedSavingsUsd: number | null;
+}
+
+export interface TelemetryProviderTokenSummary {
+  providerId: string;
+  displayName: string;
+  isHistoricalOrUnrecorded: boolean;
+  attemptCount: number;
+  logicalRequestCount: number;
+  tokenEligibleCount: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  shareOfTotalTokensPercent: number | null;
+}
+
+export interface TelemetryModelTokenSummary {
+  providerId: string;
+  providerDisplayName: string;
+  modelId: string;
+  isHistoricalOrUnrecorded: boolean;
+  attemptCount: number;
+  logicalRequestCount: number;
+  tokenEligibleCount: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  shareOfTotalTokensPercent: number | null;
+}
+
+export interface TelemetryProviderCostSummary {
+  providerId: string;
+  displayName: string;
+  isHistoricalOrUnrecorded: boolean;
+  attemptCount: number;
+  costEligibleCount: number;
+  actualCostUsd: number | null;
+  averageCostPerEligibleAttemptUsd: number | null;
+  totalTokens: number | null;
+  shareOfTotalCostPercent: number | null;
+  savingsEligibleCount: number;
+  eligibleActualCostUsd: number | null;
+  baselineCostUsd: number | null;
+  estimatedSavingsUsd: number | null;
+  savingsPercent: number | null;
+}
+
+export interface TelemetryModelCostSummary {
+  providerId: string;
+  providerDisplayName: string;
+  modelId: string;
+  isHistoricalOrUnrecorded: boolean;
+  attemptCount: number;
+  costEligibleCount: number;
+  actualCostUsd: number | null;
+  averageCostPerEligibleAttemptUsd: number | null;
+  totalTokens: number | null;
+  shareOfTotalCostPercent: number | null;
+  savingsEligibleCount: number;
+  eligibleActualCostUsd: number | null;
+  baselineCostUsd: number | null;
+  estimatedSavingsUsd: number | null;
+  savingsPercent: number | null;
+}
+
+export interface TelemetryFinancialCoverageSummary {
+  totalPhysicalAttempts: number;
+  totalLogicalRequests: number;
+  tokenCoverageCount: number;
+  tokenCoveragePercent: number | null;
+  costCoverageCount: number;
+  costCoveragePercent: number | null;
+  baselinePricingCoverageCount: number;
+  baselinePricingCoveragePercent: number | null;
+  savingsCoverageCount: number;
+  savingsCoveragePercent: number | null;
+  completeFinancialAnalyticsCount: number;
+  completeFinancialAnalyticsPercent: number | null;
+}
+
+export interface TelemetryFinancialExportRow {
+  bucketStartMs: number;
+  providerId: string;
+  modelId: string;
+  attemptCount: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  actualCostUsd: number | null;
+  baselineCostUsd: number | null;
+  estimatedSavingsUsd: number | null;
+}
+
+export interface TelemetryFinancialAnalytics {
+  queryId?: string | null;
+  generatedAtMs: number;
+  currency: string;
+  tokenSummary: TelemetryTokenSummary;
+  actualCostSummary: TelemetryActualCostSummary;
+  baselineSummary: TelemetryBaselineSummary;
+  savingsSummary: TelemetrySavingsSummary;
+  tokenTrend: TelemetryTokenTrendPoint[];
+  costTrend: TelemetryCostTrendPoint[];
+  providerTokenBreakdown: TelemetryProviderTokenSummary[];
+  modelTokenBreakdown: TelemetryModelTokenSummary[];
+  providerCostBreakdown: TelemetryProviderCostSummary[];
+  modelCostBreakdown: TelemetryModelCostSummary[];
+  coverage: TelemetryFinancialCoverageSummary;
+  exportRows: TelemetryFinancialExportRow[];
+}
+
+// ============================================================================
+// --- Step 44: Latency, Execution Performance & Benchmark Analytics Contracts ---
+// ============================================================================
+
+export type LatencyProvenanceState =
+  | "recorded"
+  | "derived"
+  | "unavailable"
+  | "not_applicable";
+
+export type LatencySampleSufficiency = "empty" | "limited" | "sufficient";
+
+export interface TelemetryLatencySummary {
+  populationLabel: string;
+  metricSemanticsLabel: string;
+  percentileMethodology: string;
+  totalEligibleExecutions: number;
+  measuredExecutions: number;
+  missingLatencyCount: number;
+  invalidLatencyCount: number;
+  latencyCoveragePercent: number | null;
+  sampleSufficiency: LatencySampleSufficiency;
+  provenance: LatencyProvenanceState;
+  averageLatencyMs: number | null;
+  medianLatencyMs: number | null;
+  p25LatencyMs: number | null;
+  p50LatencyMs: number | null;
+  p75LatencyMs: number | null;
+  p90LatencyMs: number | null;
+  p95LatencyMs: number | null;
+  p99LatencyMs: number | null;
+  minLatencyMs: number | null;
+  maxLatencyMs: number | null;
+}
+
+export interface TelemetryLatencyHistogramBucket {
+  bucketKey: string;
+  label: string;
+  minBoundMs: number;
+  maxBoundMs: number | null;
+  count: number;
+  percentage: number | null;
+}
+
+export interface TelemetryLatencyHistogram {
+  measuredSampleCount: number;
+  buckets: TelemetryLatencyHistogramBucket[];
+}
+
+export interface TelemetryLatencyTrendPoint {
+  bucketStartMs: number;
+  bucketLabel: string;
+  eligibleCount: number;
+  measuredCount: number;
+  averageLatencyMs: number | null;
+  medianLatencyMs: number | null;
+  p95LatencyMs: number | null;
+  minLatencyMs: number | null;
+  maxLatencyMs: number | null;
+}
+
+export interface TelemetryProviderLatencySummary {
+  providerId: string;
+  displayName: string;
+  isHistoricalOrUnrecorded: boolean;
+  totalEligibleCount: number;
+  measuredCount: number;
+  coveragePercent: number | null;
+  sampleSufficiency: LatencySampleSufficiency;
+  averageLatencyMs: number | null;
+  medianLatencyMs: number | null;
+  p25LatencyMs: number | null;
+  p75LatencyMs: number | null;
+  p90LatencyMs: number | null;
+  p95LatencyMs: number | null;
+  p99LatencyMs: number | null;
+  minLatencyMs: number | null;
+  maxLatencyMs: number | null;
+}
+
+export interface TelemetryModelLatencySummary {
+  providerId: string;
+  providerDisplayName: string;
+  modelId: string;
+  isHistoricalOrUnrecorded: boolean;
+  totalEligibleCount: number;
+  measuredCount: number;
+  coveragePercent: number | null;
+  sampleSufficiency: LatencySampleSufficiency;
+  averageLatencyMs: number | null;
+  medianLatencyMs: number | null;
+  p25LatencyMs: number | null;
+  p75LatencyMs: number | null;
+  p90LatencyMs: number | null;
+  p95LatencyMs: number | null;
+  p99LatencyMs: number | null;
+  minLatencyMs: number | null;
+  maxLatencyMs: number | null;
+}
+
+export interface TelemetryOutcomeLatencySummary {
+  outcome: string;
+  displayLabel: string;
+  totalCount: number;
+  measuredCount: number;
+  averageLatencyMs: number | null;
+  medianLatencyMs: number | null;
+  p95LatencyMs: number | null;
+  minLatencyMs: number | null;
+  maxLatencyMs: number | null;
+}
+
+export interface TelemetryRoutingOverheadSummary {
+  totalRoutingEvents: number;
+  measuredRoutingEvents: number;
+  provenance: LatencyProvenanceState;
+  averageRoutingLatencyMs: number | null;
+  medianRoutingLatencyMs: number | null;
+  p95RoutingLatencyMs: number | null;
+  minRoutingLatencyMs: number | null;
+  maxRoutingLatencyMs: number | null;
+  slmClassificationProvenance: LatencyProvenanceState;
+  slmClassificationNote: string;
+}
+
+export interface TelemetryStreamingPerformanceSummary {
+  totalStreamingExecutions: number;
+  measuredStreamingCompletionCount: number;
+  completionProvenance: LatencyProvenanceState;
+  averageStreamCompletionLatencyMs: number | null;
+  medianStreamCompletionLatencyMs: number | null;
+  p95StreamCompletionLatencyMs: number | null;
+  minStreamCompletionLatencyMs: number | null;
+  maxStreamCompletionLatencyMs: number | null;
+  ttftMeasuredCount: number;
+  averageTtftMs: number | null;
+  medianTtftMs: number | null;
+  ttftProvenance: LatencyProvenanceState;
+  ttftMethodologyNote: string;
+}
+
+export interface TelemetryLogicalLatencySummary {
+  totalLogicalRequests: number;
+  measuredLogicalRequests: number;
+  singleAttemptLogicalRequests: number;
+  multiAttemptLogicalRequests: number;
+  singleAttemptMedianLatencyMs: number | null;
+  singleAttemptAverageLatencyMs: number | null;
+  singleAttemptP95LatencyMs: number | null;
+  multiAttemptMedianLatencyMs: number | null;
+  multiAttemptAverageLatencyMs: number | null;
+  multiAttemptP95LatencyMs: number | null;
+  logicalCumulativeMedianLatencyMs: number | null;
+  logicalCumulativeAverageLatencyMs: number | null;
+  logicalCumulativeP95LatencyMs: number | null;
+  logicalCumulativeMinLatencyMs: number | null;
+  logicalCumulativeMaxLatencyMs: number | null;
+  initialAttemptMeasuredCount: number;
+  initialAttemptMedianLatencyMs: number | null;
+  initialAttemptAverageLatencyMs: number | null;
+  retryOrFailoverAttemptMeasuredCount: number;
+  retryOrFailoverAttemptMedianLatencyMs: number | null;
+  retryOrFailoverAttemptAverageLatencyMs: number | null;
+}
+
+export interface TelemetryLatencyDataQualitySummary {
+  totalEligibleRecords: number;
+  validLatencyRecords: number;
+  missingLatencyRecords: number;
+  invalidLatencyRecords: number;
+  duplicateOrIntermediateEventsExcluded: number;
+  coveragePercent: number | null;
+  distinctProvidersCount: number;
+  distinctModelsCount: number;
+  earliestMeasuredAtMs: number | null;
+  latestMeasuredAtMs: number | null;
+}
+
+export interface TelemetryPerformanceAnalytics {
+  queryId?: string | null;
+  generatedAtMs: number;
+  summary: TelemetryLatencySummary;
+  distribution: TelemetryLatencyHistogram;
+  timeSeries: TelemetryLatencyTrendPoint[];
+  providerBreakdown: TelemetryProviderLatencySummary[];
+  modelBreakdown: TelemetryModelLatencySummary[];
+  outcomeBreakdown: TelemetryOutcomeLatencySummary[];
+  routingOverhead: TelemetryRoutingOverheadSummary;
+  streamingPerformance: TelemetryStreamingPerformanceSummary;
+  logicalVsPhysical: TelemetryLogicalLatencySummary;
+  dataQuality: TelemetryLatencyDataQualitySummary;
+}
+
+// ============================================================================
+// --- Step 45: Telemetry Audit, Data Cleanup, Retention & Privacy Contracts ---
+// ============================================================================
+
+export type DataCategory =
+  | "user_content"
+  | "secret"
+  | "operational_telemetry"
+  | "configuration"
+  | "search_index"
+  | "application_metadata";
+
+export type DeletionPolicy =
+  | "user_only"
+  | "retention_eligible"
+  | "rebuildable"
+  | "credential_sensitive"
+  | "selectively_deletable"
+  | "system_owned";
+
+export interface SafeCredentialInventoryItem {
+  providerId: string;
+  isActive: boolean;
+  hasCredential: boolean;
+  updatedAt: number;
+}
+
+export interface DataInventoryItem {
+  storeId: string;
+  displayName: string;
+  tableOrLocation: string;
+  category: DataCategory;
+  deletionPolicy: DeletionPolicy;
+  recordCount: number;
+  containsSensitiveData: boolean;
+  includedInRetentionCleanup: boolean;
+  includedInFullWipe: boolean;
+  description: string;
+}
+
+export interface DataInventorySnapshot {
+  generatedAtMs: number;
+  databasePath: string;
+  storageSemanticsNote: string;
+  providerBoundaryNote: string;
+  items: DataInventoryItem[];
+  credentials: SafeCredentialInventoryItem[];
+  totalUserSessions: number;
+  totalUserMessages: number;
+  totalTelemetryRecords: number;
+  totalSearchIndexEntries: number;
+  totalConfiguredCredentials: number;
+  totalAppSettings: number;
+  activeExecutionsCount: number;
+}
+
+export type AuditHealthState =
+  | "healthy"
+  | "healthy_with_warnings"
+  | "needs_attention"
+  | "corrupted"
+  | "unavailable";
+
+export type AuditCheckMode = "quick" | "full";
+
+export interface DataAuditFinding {
+  code: string;
+  severity: "info" | "warning" | "error";
+  category: string;
+  message: string;
+  affectedCount: number;
+  safeRepairAvailable: boolean;
+}
+
+export interface OrphanAuditSummary {
+  orphanedMessagesCount: number;
+  emptySessionsCount: number;
+  expectedSearchIndexEntries: number;
+  actualSearchIndexEntries: number;
+  searchIndexMismatchCount: number;
+  searchIndexInSync: boolean;
+  unlinkedSessionTelemetryCount: number;
+}
+
+export interface TelemetryConsistencyAuditSummary {
+  totalRecordsChecked: number;
+  missingTimestampCount: number;
+  futureTimestampAnomalyCount: number;
+  negativeLatencyCount: number;
+  negativeTokenCount: number;
+  negativeCostCount: number;
+  invalidConfidenceCount: number;
+  missingProviderOrModelCount: number;
+}
+
+export interface DataAuditReport {
+  auditedAtMs: number;
+  mode: AuditCheckMode;
+  durationMs: number;
+  healthState: AuditHealthState;
+  sqliteIntegrityOk: boolean;
+  sqliteIntegrityMessage: string;
+  foreignKeysOk: boolean;
+  foreignKeyViolationsCount: number;
+  schemaVersion: number;
+  expectedSchemaVersion: number;
+  walEnabled: boolean;
+  orphanSummary: OrphanAuditSummary;
+  telemetryConsistency: TelemetryConsistencyAuditSummary;
+  invalidSettingsCount: number;
+  credentialRecordsValid: boolean;
+  privacyIsolationVerified: boolean;
+  findings: DataAuditFinding[];
+}
+
+export type SafeRepairAction =
+  | "rebuild_search_index"
+  | "remove_orphaned_records_and_rebuild_index";
+
+export interface SafeRepairResult {
+  executedAtMs: number;
+  durationMs: number;
+  action: SafeRepairAction;
+  searchIndexEntriesRebuilt: number;
+  orphanedMessagesRemoved: number;
+  verificationPassed: boolean;
+  message: string;
+}
+
+export interface RetentionPolicyConfig {
+  historyRetentionEnabled: boolean;
+  historyRetentionDays: number;
+  excludePinnedSessions: boolean;
+  telemetryRetentionEnabled: boolean;
+  telemetryRetentionDays: number;
+  cleanupConfirmationRequired: boolean;
+}
+
+export type CleanupTargetScope =
+  | "telemetry_only"
+  | "history_only"
+  | "retention_policy"
+  | "search_index_rebuild";
+
+export interface CleanupPreviewRequest {
+  scope: CleanupTargetScope;
+  olderThanDays?: number | null;
+  excludePinnedSessions?: boolean | null;
+  deleteAllInScope?: boolean | null;
+}
+
+export interface CleanupPreviewResult {
+  generatedAtMs: number;
+  scope: CleanupTargetScope;
+  cutoffTimestampMs: number | null;
+  olderThanDays: number | null;
+  excludePinnedSessions: boolean;
+  eligibleSessionsCount: number;
+  eligibleMessagesCount: number;
+  eligibleTelemetryRecordsCount: number;
+  affectedSearchIndexEntriesCount: number;
+  excludedPinnedSessionsCount: number;
+  skippedActiveSessionsCount: number;
+  skippedFutureTimestampCount: number;
+  preservesCredentials: boolean;
+  preservesSettings: boolean;
+  summaryMessage: string;
+}
+
+export interface CleanupExecutionRequest {
+  scope: CleanupTargetScope;
+  olderThanDays?: number | null;
+  excludePinnedSessions?: boolean | null;
+  deleteAllInScope?: boolean | null;
+  confirmed: boolean;
+}
+
+export type CleanupVerificationStatus =
+  | "verified"
+  | "verified_with_warnings"
+  | "verification_failed";
+
+export interface CleanupOperationResult {
+  operationId: string;
+  scope: CleanupTargetScope;
+  startedAtMs: number;
+  completedAtMs: number;
+  durationMs: number;
+  deletedSessionsCount: number;
+  deletedMessagesCount: number;
+  deletedTelemetryRecordsCount: number;
+  rebuiltSearchIndexEntriesCount: number;
+  excludedPinnedSessionsCount: number;
+  skippedActiveSessionsCount: number;
+  skippedFutureTimestampCount: number;
+  remainingSessionsCount: number;
+  remainingMessagesCount: number;
+  remainingTelemetryRecordsCount: number;
+  remainingSearchIndexEntriesCount: number;
+  verificationStatus: CleanupVerificationStatus;
+  storageNote: string;
+  warnings: string[];
+}
+
+export interface FullWipePreviewResult {
+  generatedAtMs: number;
+  sessionsToDelete: number;
+  messagesToDelete: number;
+  telemetryRecordsToDelete: number;
+  searchIndexEntriesToDelete: number;
+  appSettingsToReset: number;
+  providerCredentialsToDelete: number;
+  configuredProviderIds: string[];
+  activeExecutionsCount: number;
+  canProceed: boolean;
+  blockReason: string | null;
+  requiredConfirmationToken: string;
+  providerBoundaryWarning: string;
+}
+
+export interface FullWipeRequest {
+  confirmationToken: string;
+  confirmed: boolean;
+  includeCredentials?: boolean | null;
+  includeSettings?: boolean | null;
+}
+
+export interface FullWipeReport {
+  operationId: string;
+  startedAtMs: number;
+  completedAtMs: number;
+  durationMs: number;
+  deletedSessionsCount: number;
+  deletedMessagesCount: number;
+  deletedTelemetryRecordsCount: number;
+  clearedSearchIndexEntriesCount: number;
+  resetSettingsCount: number;
+  deletedCredentialsCount: number;
+  remainingSessionsCount: number;
+  remainingMessagesCount: number;
+  remainingTelemetryRecordsCount: number;
+  remainingSearchIndexEntriesCount: number;
+  remainingCredentialsCount: number;
+  verificationStatus: CleanupVerificationStatus;
+  storageNote: string;
+}
+
+// ============================================================================
+// Step 47: License, About & Contact Models
+// ============================================================================
+
+export interface LicenseInfoDto {
+  productName: string;
+  edition: string;
+  licenseType: string;
+  status: string;
+  statusExplanation: string;
+  copyright: string;
+  validFrom: string;
+  validUntil: string | null;
+  activationRequired: boolean;
+  isCommercialAllowed: boolean;
+  entitlements: string[];
+  licenseNotice: string;
+}
+
+
+
 
 
 

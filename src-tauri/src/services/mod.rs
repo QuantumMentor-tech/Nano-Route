@@ -11,6 +11,7 @@ pub mod chat;
 pub mod chat_orchestrator;
 pub mod context_builder;
 pub mod credentials;
+pub mod data_lifecycle;
 pub mod execution;
 pub mod health;
 pub mod history;
@@ -27,6 +28,7 @@ pub use chat_orchestrator::{
 };
 pub use context_builder::ConversationContextBuilder;
 pub use credentials::{CredentialVaultService, SaveCredentialInput};
+pub use data_lifecycle::DataLifecycleService;
 pub use execution::{
     CancellationResultDto, ExecutionContext, ExecutionLifecycleState, ExecutionManager,
     ExecutionStateDto, RecoveryContext, TerminationReason,

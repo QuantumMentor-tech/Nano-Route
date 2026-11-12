@@ -7,7 +7,9 @@
 // ============================================================================
 
 use crate::domain::{
-    TelemetryAggregateReport, TelemetryEventType, TelemetryFilter, TelemetryOutcome, TelemetryRecord,
+    TelemetryAggregateReport, TelemetryDashboardFilters, TelemetryDashboardSnapshot,
+    TelemetryEventType, TelemetryFilter, TelemetryFinancialAnalytics, TelemetryOutcome,
+    TelemetryPerformanceAnalytics, TelemetryRecord,
 };
 use crate::errors::AppError;
 use crate::storage::repositories::TelemetryRepository;
@@ -49,7 +51,9 @@ pub struct RecordTelemetryInput {
     pub prompt_tokens: Option<u32>,
     pub completion_tokens: Option<u32>,
     pub cost_usd: Option<f64>,
+    #[serde(alias = "confidenceScore", alias = "confidence_score")]
     pub confidence: Option<f64>,
+    #[serde(alias = "routing_reason")]
     pub routing_reason: Option<String>,
 }
 
@@ -239,6 +243,131 @@ impl TelemetryService {
         self.database_manager.with_connection(|conn| {
             TelemetryRepository::delete(conn, trimmed)
                 .map_err(|e| AppError::Internal(format!("Failed to delete telemetry record: {}", e)))
+        })
+    }
+
+    /// Non-panicking fire-and-forget wrapper used by internal classifier/analyzer services.
+    pub fn record(&self, input: RecordTelemetryInput) {
+        let _ = self.record_event(input);
+    }
+
+    fn validate_and_normalize_dashboard_filters(
+        mut filters: TelemetryDashboardFilters,
+    ) -> Result<TelemetryDashboardFilters, AppError> {
+        if let (Some(start), Some(end)) = (filters.start_time, filters.end_time) {
+            if start > end {
+                return Err(AppError::InvalidInput(
+                    "Telemetry date range start cannot be after date range end".to_string(),
+                ));
+            }
+        }
+
+        if let Some(ref p) = filters.provider_id {
+            if p.len() > 128 {
+                return Err(AppError::InvalidInput(
+                    "Telemetry provider filter exceeds maximum length of 128 characters".to_string(),
+                ));
+            }
+        }
+
+        if let Some(ref m) = filters.model_id {
+            if m.len() > 128 {
+                return Err(AppError::InvalidInput(
+                    "Telemetry model filter exceeds maximum length of 128 characters".to_string(),
+                ));
+            }
+        }
+
+        if let Some(ref out_str) = filters.outcome {
+            let trimmed = out_str.trim().to_lowercase();
+            if !trimmed.is_empty() && trimmed != "unknown" {
+                TelemetryOutcome::from_str(&trimmed).map_err(AppError::InvalidInput)?;
+            }
+        }
+
+        filters.provider_id = filters
+            .provider_id
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+        filters.model_id = filters
+            .model_id
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+        filters.outcome = filters
+            .outcome
+            .map(|s| s.trim().to_lowercase())
+            .filter(|s| !s.is_empty());
+        filters.baseline_provider_id = filters
+            .baseline_provider_id
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+        filters.baseline_model_id = filters
+            .baseline_model_id
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+
+        Ok(filters)
+    }
+
+    /// Validates dashboard filters and returns a read-only Step 42 & Step 43 `TelemetryDashboardSnapshot`.
+    pub fn get_dashboard_snapshot(
+        &self,
+        filters: TelemetryDashboardFilters,
+    ) -> Result<TelemetryDashboardSnapshot, AppError> {
+        let valid_filters = Self::validate_and_normalize_dashboard_filters(filters)?;
+        let generated_at_ms = current_epoch_ms();
+        self.database_manager.with_connection(|conn| {
+            TelemetryRepository::aggregate_dashboard_snapshot(conn, &valid_filters, generated_at_ms)
+                .map_err(|e| {
+                    AppError::Internal(format!(
+                        "Failed to compute telemetry dashboard snapshot: {}",
+                        e
+                    ))
+                })
+        })
+    }
+
+    /// Validates dashboard filters and returns a read-only Step 43 `TelemetryFinancialAnalytics` snapshot.
+    pub fn get_cost_analytics_snapshot(
+        &self,
+        filters: TelemetryDashboardFilters,
+    ) -> Result<TelemetryFinancialAnalytics, AppError> {
+        let valid_filters = Self::validate_and_normalize_dashboard_filters(filters)?;
+        let generated_at_ms = current_epoch_ms();
+        self.database_manager.with_connection(|conn| {
+            TelemetryRepository::aggregate_financial_analytics(
+                conn,
+                &valid_filters,
+                generated_at_ms,
+            )
+            .map_err(|e| {
+                AppError::Internal(format!(
+                    "Failed to compute telemetry financial analytics snapshot: {}",
+                    e
+                ))
+            })
+        })
+    }
+
+    /// Validates dashboard filters and returns a read-only Step 44 `TelemetryPerformanceAnalytics` snapshot.
+    pub fn get_performance_analytics_snapshot(
+        &self,
+        filters: TelemetryDashboardFilters,
+    ) -> Result<TelemetryPerformanceAnalytics, AppError> {
+        let valid_filters = Self::validate_and_normalize_dashboard_filters(filters)?;
+        let generated_at_ms = current_epoch_ms();
+        self.database_manager.with_connection(|conn| {
+            TelemetryRepository::aggregate_performance_analytics(
+                conn,
+                &valid_filters,
+                generated_at_ms,
+            )
+            .map_err(|e| {
+                AppError::Internal(format!(
+                    "Failed to compute telemetry performance analytics snapshot: {}",
+                    e
+                ))
+            })
         })
     }
 

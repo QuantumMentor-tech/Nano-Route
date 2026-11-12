@@ -8,7 +8,7 @@
 */
 
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   CheckSquare,
@@ -28,7 +28,11 @@ import { HistoryConversationViewer } from "./HistoryConversationViewer";
 
 export const HistoryExplorer: React.FC = () => {
   const navigate = useNavigate();
-  const explorer = useHistoryExplorer();
+  const [searchParams] = useSearchParams();
+  const explorer = useHistoryExplorer({
+    initialProviderFilter: searchParams.get("provider") ?? "",
+    initialModelFilter: searchParams.get("model") ?? "",
+  });
 
   const [pendingSingleDelete, setPendingSingleDelete] =
     useState<HistorySessionDto | null>(null);

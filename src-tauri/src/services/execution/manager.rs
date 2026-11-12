@@ -365,6 +365,29 @@ impl ExecutionManager {
             .unwrap_or(0)
     }
 
+    /// Returns all session IDs that currently have an active (non-terminal) execution.
+    pub fn get_active_session_ids(&self) -> Vec<String> {
+        self.executions
+            .read()
+            .map(|map| {
+                let mut ids: Vec<String> = map
+                    .values()
+                    .filter_map(|ctx| {
+                        let c = ctx.read().ok()?;
+                        if c.state.is_active() {
+                            Some(c.session_id.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                ids.sort();
+                ids.dedup();
+                ids
+            })
+            .unwrap_or_default()
+    }
+
     /// Returns total registered execution count (including terminal before cleanup).
     pub fn get_total_count(&self) -> usize {
         self.executions.read().map(|map| map.len()).unwrap_or(0)

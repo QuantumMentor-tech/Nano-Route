@@ -600,7 +600,7 @@ impl ChatOrchestrator {
                     error_code: Some("USER_CANCELLED".to_string()),
                     latency_ms: Some(latency_ms),
                     routing_reason: Some(routing_decision.decision_reason.clone()),
-                    confidence_score: routing_decision.confidence_metadata.slm_analysis_confidence,
+                    confidence: routing_decision.confidence_metadata.slm_analysis_confidence,
                     ..Default::default()
                 });
 
@@ -635,7 +635,7 @@ impl ChatOrchestrator {
                     completion_tokens: None,
                     cost_usd: None,
                     routing_reason: Some(routing_decision.decision_reason.clone()),
-                    confidence_score: routing_decision.confidence_metadata.slm_analysis_confidence,
+                    confidence: routing_decision.confidence_metadata.slm_analysis_confidence,
                     ..Default::default()
                 });
 
@@ -733,14 +733,15 @@ impl ChatOrchestrator {
 
                                 let fb_prompt_tokens = fb_resp.usage.as_ref().and_then(|u| u.input_tokens).unwrap_or(0);
                                 let fb_completion_tokens = fb_resp.usage.as_ref().and_then(|u| u.output_tokens).unwrap_or(0);
-                                let mut fb_cost = 0.0;
+                                let mut fb_cost_opt: Option<f64> = None;
                                 if let Some(ref pricing) = fallback_catalog_model.pricing {
                                     if let (Some(in_rate), Some(out_rate)) = (pricing.input_cost_per_million, pricing.output_cost_per_million) {
                                         let in_c = (fb_prompt_tokens as f64 / 1_000_000.0) * in_rate;
                                         let out_c = (fb_completion_tokens as f64 / 1_000_000.0) * out_rate;
-                                        fb_cost = in_c + out_c;
+                                        fb_cost_opt = Some(in_c + out_c);
                                     }
                                 }
+                                let fb_cost = fb_cost_opt.unwrap_or(0.0);
 
                                 let assistant_metadata = ChatMessageMetadata {
                                     routed_provider: Some(cand_prov.clone()),
@@ -782,9 +783,9 @@ impl ChatOrchestrator {
                                     latency_ms: Some(fb_latency),
                                     prompt_tokens: Some(fb_prompt_tokens),
                                     completion_tokens: Some(fb_completion_tokens),
-                                    cost_usd: Some(fb_cost),
+                                    cost_usd: fb_cost_opt,
                                     routing_reason: Some(format!("Failover from {}/{}", provider_id_str, model_id_str)),
-                                    confidence_score: routing_decision.confidence_metadata.slm_analysis_confidence,
+                                    confidence: routing_decision.confidence_metadata.slm_analysis_confidence,
                                     ..Default::default()
                                 });
 
@@ -859,7 +860,7 @@ impl ChatOrchestrator {
             .unwrap_or(0);
 
         // Compute authoritative cost if pricing is available in catalog
-        let mut cost_usd = 0.0;
+        let mut cost_usd_opt: Option<f64> = None;
         if let Some(ref pricing) = catalog_model.pricing {
             if let (Some(in_rate), Some(out_rate)) = (
                 pricing.input_cost_per_million,
@@ -867,9 +868,10 @@ impl ChatOrchestrator {
             ) {
                 let in_cost = (prompt_tokens as f64 / 1_000_000.0) * in_rate;
                 let out_cost = (completion_tokens as f64 / 1_000_000.0) * out_rate;
-                cost_usd = in_cost + out_cost;
+                cost_usd_opt = Some(in_cost + out_cost);
             }
         }
+        let cost_usd = cost_usd_opt.unwrap_or(0.0);
 
         // 15. Persist Assistant Message to SQLite with Metadata
         let assistant_metadata = ChatMessageMetadata {
@@ -913,7 +915,7 @@ impl ChatOrchestrator {
             latency_ms: Some(latency_ms),
             prompt_tokens: Some(prompt_tokens),
             completion_tokens: Some(completion_tokens),
-            cost_usd: Some(cost_usd),
+            cost_usd: cost_usd_opt,
             routing_reason: Some(routing_decision.decision_reason.clone()),
             confidence_score: routing_decision.confidence_metadata.slm_analysis_confidence,
             ..Default::default()
@@ -1285,7 +1287,7 @@ impl ChatOrchestrator {
                     error_code: Some("USER_CANCELLED".to_string()),
                     latency_ms: Some(latency_ms),
                     routing_reason: Some(routing_decision.decision_reason.clone()),
-                    confidence_score: routing_decision.confidence_metadata.slm_analysis_confidence,
+                    confidence: routing_decision.confidence_metadata.slm_analysis_confidence,
                     ..Default::default()
                 });
 
@@ -1326,7 +1328,7 @@ impl ChatOrchestrator {
                     completion_tokens: None,
                     cost_usd: None,
                     routing_reason: Some(routing_decision.decision_reason.clone()),
-                    confidence_score: routing_decision.confidence_metadata.slm_analysis_confidence,
+                    confidence: routing_decision.confidence_metadata.slm_analysis_confidence,
                     ..Default::default()
                 });
 
@@ -1540,7 +1542,7 @@ impl ChatOrchestrator {
                                 let fb_prompt_tokens = fb_usage.as_ref().and_then(|u| u.input_tokens).unwrap_or(0);
                                 let fb_completion_tokens = fb_usage.as_ref().and_then(|u| u.output_tokens).unwrap_or(0);
 
-                                let mut fb_cost = 0.0;
+                                let mut fb_cost_opt: Option<f64> = None;
                                 if let Some(ref pricing) = fallback_catalog_model.pricing {
                                     if let (Some(in_rate), Some(out_rate)) = (
                                         pricing.input_cost_per_million,
@@ -1548,9 +1550,10 @@ impl ChatOrchestrator {
                                     ) {
                                         let in_cost = (fb_prompt_tokens as f64 / 1_000_000.0) * in_rate;
                                         let out_cost = (fb_completion_tokens as f64 / 1_000_000.0) * out_rate;
-                                        fb_cost = in_cost + out_cost;
+                                        fb_cost_opt = Some(in_cost + out_cost);
                                     }
                                 }
+                                let fb_cost = fb_cost_opt.unwrap_or(0.0);
 
                                 let assistant_metadata = ChatMessageMetadata {
                                     routed_provider: Some(cand_prov.clone()),
@@ -1601,9 +1604,9 @@ impl ChatOrchestrator {
                                     latency_ms: Some(fb_latency),
                                     prompt_tokens: Some(fb_prompt_tokens),
                                     completion_tokens: Some(fb_completion_tokens),
-                                    cost_usd: Some(fb_cost),
+                                    cost_usd: fb_cost_opt,
                                     routing_reason: Some(format!("Failover from {}/{}", provider_id_str, model_id_str)),
-                                    confidence_score: routing_decision.confidence_metadata.slm_analysis_confidence,
+                                    confidence: routing_decision.confidence_metadata.slm_analysis_confidence,
                                     ..Default::default()
                                 });
 
@@ -1747,7 +1750,7 @@ impl ChatOrchestrator {
             }
         };
 
-        let mut cost_usd = 0.0;
+        let mut cost_usd_opt: Option<f64> = None;
         if let Some(ref pricing) = catalog_model.pricing {
             if let (Some(in_rate), Some(out_rate)) = (
                 pricing.input_cost_per_million,
@@ -1755,9 +1758,10 @@ impl ChatOrchestrator {
             ) {
                 let in_cost = (prompt_tokens as f64 / 1_000_000.0) * in_rate;
                 let out_cost = (completion_tokens as f64 / 1_000_000.0) * out_rate;
-                cost_usd = in_cost + out_cost;
+                cost_usd_opt = Some(in_cost + out_cost);
             }
         }
+        let cost_usd = cost_usd_opt.unwrap_or(0.0);
 
         // 16. Persist Assistant Message to SQLite with Metadata (EXACTLY ONCE)
         let assistant_metadata = ChatMessageMetadata {
@@ -1801,7 +1805,7 @@ impl ChatOrchestrator {
             latency_ms: Some(latency_ms),
             prompt_tokens: Some(prompt_tokens),
             completion_tokens: Some(completion_tokens),
-            cost_usd: Some(cost_usd),
+            cost_usd: cost_usd_opt,
             routing_reason: Some(routing_decision.decision_reason.clone()),
             confidence_score: routing_decision.confidence_metadata.slm_analysis_confidence,
             ..Default::default()

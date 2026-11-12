@@ -11,6 +11,7 @@
 import { Channel } from "@tauri-apps/api/core";
 import { isTauriContext, safeInvoke, generateRequestId } from "./client.ts";
 import { IpcError } from "./errors.ts";
+import { __internalDeleteMockTelemetryBySession } from "./telemetry.ts";
 import {
   IPC_COMMANDS,
   type AppendChatMessageRequest,
@@ -132,6 +133,50 @@ export function __internalGetMockChatStore(): {
     sessions: mockSessions,
     messages: mockMessages,
   };
+}
+
+/**
+ * Returns session IDs that currently have an active (non-terminal) execution in the mock store.
+ */
+export function __internalGetActiveMockSessionIds(): string[] {
+  const ids = new Set<string>();
+  for (const exec of mockExecutions.values()) {
+    if (
+      exec.state === "created" ||
+      exec.state === "validating" ||
+      exec.state === "routing" ||
+      exec.state === "route_resolved" ||
+      exec.state === "executing" ||
+      exec.state === "streaming" ||
+      exec.state === "cancelling" ||
+      exec.state === "recovering"
+    ) {
+      ids.add(exec.sessionId);
+    }
+  }
+  return Array.from(ids).sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Registers or clears a simulated active/streaming execution for a session in test/browser mode.
+ */
+export function __internalSetSimulatedActiveSession(
+  sessionId: string,
+  active: boolean
+): void {
+  const execId = `sim_active_${sessionId}`;
+  if (active) {
+    mockExecutions.set(execId, {
+      executionId: execId,
+      sessionId,
+      requestId: `req_${sessionId}`,
+      state: "streaming",
+      startedAtMs: Date.now(),
+      cancellationToken: { isCancelled: false },
+    });
+  } else {
+    mockExecutions.delete(execId);
+  }
 }
 
 function normalizeMetadata(input?: Partial<ChatMessageMetadata>): ChatMessageMetadata {
@@ -399,6 +444,7 @@ export async function deleteChatSession(sessionId: string): Promise<boolean> {
   if (!isTauriContext()) {
     const existed = mockSessions.delete(validId);
     mockMessages.delete(validId);
+    __internalDeleteMockTelemetryBySession(validId);
     return existed;
   }
 

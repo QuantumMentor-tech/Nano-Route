@@ -1,7 +1,7 @@
 //! Application Metadata Service
 //! Coordinates product identity, versioning, and environment diagnostics.
 
-use crate::domain::AppInfo;
+use crate::domain::{AppInfo, LicenseInfo};
 use crate::infrastructure::SystemInfoProvider;
 
 const APP_NAME: &str = "Nano Route";
@@ -24,6 +24,11 @@ impl AppService {
             SystemInfoProvider::os_name(),
             SystemInfoProvider::arch_name(),
         )
+    }
+
+    /// Retrieves authoritative license and entitlement metadata.
+    pub fn get_license_info(&self) -> LicenseInfo {
+        LicenseInfo::default()
     }
 }
 

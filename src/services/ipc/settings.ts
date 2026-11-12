@@ -11,11 +11,21 @@ import {
   IPC_COMMANDS,
   type AppSettingKeyString,
   type AppSettingsSnapshot,
+  type ModelSettingsSummaryDto,
   type ProviderCredentialStatus,
+  type ProviderSettingsSummaryDto,
   type RoutingPreferenceMode,
+  type SecurityStatusSummaryDto,
+  type SettingsWorkspaceSnapshotDto,
   type UpdateProviderPreferencesRequest,
+  type ProviderDescriptorDto,
+  type ModelDescriptorDto,
 } from "./types.ts";
 import { IpcError } from "./errors.ts";
+import { listRegisteredProviders, listRegisteredModels } from "./registry.ts";
+import { getAllProviderHealth } from "./provider_health.ts";
+import { DEFAULT_ROUTING_POLICY_CONFIG } from "./routing_policy.ts";
+import { __internalGetMockCredentialStore } from "./credentials.ts";
 
 // --- Virtual Application Defaults ---
 
@@ -24,6 +34,9 @@ export const DEFAULT_APP_SETTINGS: Readonly<AppSettingsSnapshot> = {
   telemetryEnabled: true,
   historyRetentionDays: 0, // 0 = indefinite/unlimited local retention
   windowStartMaximized: false,
+  manualOverrideEnabled: false,
+  manualOverrideProvider: "",
+  manualOverrideModel: "",
 };
 
 // --- In-Memory Mock Store for Testing & Browser Mode ---
@@ -37,6 +50,10 @@ const mockProviderPreferences = new Map<string, ProviderCredentialStatus>();
 export function clearMockSettings(): void {
   mockAppSettings.clear();
   mockProviderPreferences.clear();
+}
+
+export function __internalGetMockSettingsStore(): Map<string, string> {
+  return mockAppSettings;
 }
 
 /**
@@ -124,6 +141,25 @@ export function validateSetting(key: AppSettingKeyString, value: string): string
       }
       throw invalidInputError(`Invalid boolean value '${trimmed}' for window.start_maximized. Allowed: [true, false]`);
     }
+    case "routing.manual_override_enabled": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "true" || lower === "false") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid boolean value '${trimmed}' for routing.manual_override_enabled. Allowed: [true, false]`);
+    }
+    case "routing.manual_override_provider": {
+      if (trimmed.length > 64) {
+        throw invalidInputError("Manual override provider ID exceeds 64 characters");
+      }
+      return trimmed;
+    }
+    case "routing.manual_override_model": {
+      if (trimmed.length > 128) {
+        throw invalidInputError("Manual override model ID exceeds 128 characters");
+      }
+      return trimmed;
+    }
     default:
       throw invalidInputError(`Unknown application setting key '${key}'`);
   }
@@ -143,12 +179,19 @@ export async function getAppSettings(): Promise<AppSettingsSnapshot> {
     const historyRetentionDays = retentionVal !== undefined ? parseInt(retentionVal, 10) : DEFAULT_APP_SETTINGS.historyRetentionDays;
     const windowVal = mockAppSettings.get("window.start_maximized");
     const windowStartMaximized = windowVal !== undefined ? windowVal === "true" : DEFAULT_APP_SETTINGS.windowStartMaximized;
+    const overrideEnabledVal = mockAppSettings.get("routing.manual_override_enabled");
+    const manualOverrideEnabled = overrideEnabledVal !== undefined ? overrideEnabledVal === "true" : DEFAULT_APP_SETTINGS.manualOverrideEnabled;
+    const manualOverrideProvider = mockAppSettings.get("routing.manual_override_provider") ?? DEFAULT_APP_SETTINGS.manualOverrideProvider;
+    const manualOverrideModel = mockAppSettings.get("routing.manual_override_model") ?? DEFAULT_APP_SETTINGS.manualOverrideModel;
 
     return {
       routingPreferenceMode: routingMode,
       telemetryEnabled,
       historyRetentionDays,
       windowStartMaximized,
+      manualOverrideEnabled,
+      manualOverrideProvider,
+      manualOverrideModel,
     };
   }
 
@@ -205,6 +248,88 @@ export async function resetAppSetting(key: AppSettingKeyString): Promise<boolean
   return safeInvoke<boolean>(IPC_COMMANDS.RESET_APP_SETTING, { key });
 }
 
+/**
+ * Resets all application settings to virtual defaults.
+ * Preserves credentials, chat history, and telemetry.
+ */
+export async function resetAllAppSettings(): Promise<number> {
+  if (!isTauriContext()) {
+    const count = mockAppSettings.size;
+    mockAppSettings.clear();
+    return count;
+  }
+
+  return safeInvoke<number>(IPC_COMMANDS.RESET_ALL_SETTINGS);
+}
+
+/**
+ * Retrieves the unified settings workspace snapshot combining application settings,
+ * provider configurations, health states, model registry, routing policy, and security status.
+ */
+export async function getSettingsWorkspaceSnapshot(): Promise<SettingsWorkspaceSnapshotDto> {
+  if (!isTauriContext()) {
+    const appSettings = await getAppSettings();
+    const providers = await listRegisteredProviders();
+    const allModels = await listRegisteredModels();
+    const healthSnapshots = await getAllProviderHealth();
+    const healthMap = new Map(healthSnapshots.map((h) => [h.providerId, h]));
+
+    const providerSummaries: ProviderSettingsSummaryDto[] = providers.map((p: ProviderDescriptorDto) => {
+      const pref = mockProviderPreferences.get(p.providerId) ?? __internalGetMockCredentialStore().get(p.providerId);
+      const health = healthMap.get(p.providerId);
+      const pModels = allModels.filter((m: ModelDescriptorDto) => m.providerId === p.providerId);
+
+      return {
+        providerId: p.providerId,
+        displayName: p.displayName,
+        description: p.description,
+        defaultBaseUrl: p.defaultBaseUrl,
+        documentationUrl: p.documentationUrl ?? null,
+        configuredBaseUrl: pref?.baseUrl ?? null,
+        isConfigured: pref?.isConfigured ?? false,
+        isActive: pref?.isActive ?? (p.lifecycleState === "active"),
+        priorityWeight: pref?.priorityWeight ?? 5,
+        monthlyBudgetLimit: pref?.monthlyBudgetLimit ?? null,
+        currentMonthSpend: pref?.currentMonthSpend ?? 0.0,
+        healthState: health?.state ?? "unknown",
+        healthCheckedAtMs: health?.lastObservedAtMs ?? null,
+        modelCount: pModels.length,
+        defaultModelId: p.defaultModelId ?? (pModels[0]?.modelId ?? ""),
+        capabilities: p.capabilities.capabilities,
+      };
+    });
+
+    const modelSummaries: ModelSettingsSummaryDto[] = allModels.map((m: ModelDescriptorDto) => ({
+      providerId: m.providerId,
+      modelId: m.modelId,
+      displayName: m.displayName,
+      isActive: m.availability === "Available",
+      contextWindow: m.contextWindow,
+      maxOutputTokens: m.maxOutputTokens ?? 4096,
+      isDefault: m.isDefault,
+      capabilities: m.capabilities.capabilities,
+    }));
+
+    const securityStatus: SecurityStatusSummaryDto = {
+      dpapiProtectionActive: true,
+      localStorageType: "Protected SQLite + Windows DPAPI",
+      plaintextKeysProhibited: true,
+      remoteSyncDisabled: true,
+      lastAuditTimeMs: null,
+    };
+
+    return {
+      appSettings,
+      providers: providerSummaries,
+      models: modelSummaries,
+      routingPolicy: structuredClone(DEFAULT_ROUTING_POLICY_CONFIG),
+      securityStatus,
+    };
+  }
+
+  return safeInvoke<SettingsWorkspaceSnapshotDto>(IPC_COMMANDS.GET_SETTINGS_WORKSPACE_SNAPSHOT);
+}
+
 // --- Provider Preferences API ---
 
 /**
@@ -214,7 +339,7 @@ export async function getProviderPreferences(providerId: string): Promise<Provid
   const validatedId = validateProviderId(providerId);
 
   if (!isTauriContext()) {
-    return mockProviderPreferences.get(validatedId) ?? null;
+    return mockProviderPreferences.get(validatedId) ?? __internalGetMockCredentialStore().get(validatedId) ?? null;
   }
 
   return safeInvoke<ProviderCredentialStatus | null>(IPC_COMMANDS.GET_PROVIDER_PREFERENCES, {
@@ -227,7 +352,14 @@ export async function getProviderPreferences(providerId: string): Promise<Provid
  */
 export async function listProviderPreferences(): Promise<ProviderCredentialStatus[]> {
   if (!isTauriContext()) {
-    return Array.from(mockProviderPreferences.values()).sort(
+    const merged = new Map<string, ProviderCredentialStatus>();
+    for (const [id, s] of __internalGetMockCredentialStore()) {
+      merged.set(id, s);
+    }
+    for (const [id, s] of mockProviderPreferences) {
+      merged.set(id, s);
+    }
+    return Array.from(merged.values()).sort(
       (a, b) => b.priorityWeight - a.priorityWeight || a.providerId.localeCompare(b.providerId)
     );
   }
@@ -258,7 +390,7 @@ export async function updateProviderPreferences(
   }
 
   if (!isTauriContext()) {
-    const existing = mockProviderPreferences.get(validatedId);
+    const existing = mockProviderPreferences.get(validatedId) ?? __internalGetMockCredentialStore().get(validatedId);
     if (!existing) {
       throw invalidInputError(`Cannot update preferences for unconfigured provider '${validatedId}'`);
     }
@@ -273,6 +405,7 @@ export async function updateProviderPreferences(
     };
 
     mockProviderPreferences.set(validatedId, updated);
+    __internalGetMockCredentialStore().set(validatedId, updated);
     return updated;
   }
 
@@ -294,7 +427,7 @@ export async function resetProviderPreferences(providerId: string): Promise<Prov
   const validatedId = validateProviderId(providerId);
 
   if (!isTauriContext()) {
-    const existing = mockProviderPreferences.get(validatedId);
+    const existing = mockProviderPreferences.get(validatedId) ?? __internalGetMockCredentialStore().get(validatedId);
     if (!existing) {
       throw invalidInputError(`Cannot reset preferences for unconfigured provider '${validatedId}'`);
     }
@@ -309,6 +442,7 @@ export async function resetProviderPreferences(providerId: string): Promise<Prov
     };
 
     mockProviderPreferences.set(validatedId, reset);
+    __internalGetMockCredentialStore().set(validatedId, reset);
     return reset;
   }
 

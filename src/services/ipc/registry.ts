@@ -190,6 +190,7 @@ const BUILTIN_MOCK_MODELS: ModelDescriptorDto[] = [
     description: "Omni-model supporting text, image, and high-speed execution.",
     contextWindow: 128_000,
     maxOutputTokens: 4096,
+    pricing: { inputCostPerMillion: 2.5, outputCostPerMillion: 10.0, currency: "USD" },
     capabilities: {
       capabilities: ["text_generation", "streaming", "vision", "image_input", "large_context", "code_generation"],
     },
@@ -203,6 +204,7 @@ const BUILTIN_MOCK_MODELS: ModelDescriptorDto[] = [
     description: "Lightweight, cost-efficient model for fast, high-volume tasks.",
     contextWindow: 128_000,
     maxOutputTokens: 16384,
+    pricing: { inputCostPerMillion: 0.15, outputCostPerMillion: 0.6, currency: "USD" },
     capabilities: {
       capabilities: ["text_generation", "streaming", "vision", "image_input", "large_context", "code_generation"],
     },
@@ -216,6 +218,7 @@ const BUILTIN_MOCK_MODELS: ModelDescriptorDto[] = [
     description: "State-of-the-art model for complex analysis, software engineering, and vision.",
     contextWindow: 200_000,
     maxOutputTokens: 8192,
+    pricing: { inputCostPerMillion: 3.0, outputCostPerMillion: 15.0, currency: "USD" },
     capabilities: {
       capabilities: ["text_generation", "streaming", "vision", "image_input", "large_context", "code_generation"],
     },
@@ -229,6 +232,7 @@ const BUILTIN_MOCK_MODELS: ModelDescriptorDto[] = [
     description: "Massive 2M token context window for large codebases, video, and audio.",
     contextWindow: 2_000_000,
     maxOutputTokens: 8192,
+    pricing: { inputCostPerMillion: 1.25, outputCostPerMillion: 5.0, currency: "USD" },
     capabilities: {
       capabilities: [
         "text_generation",
@@ -250,6 +254,7 @@ const BUILTIN_MOCK_MODELS: ModelDescriptorDto[] = [
     description: "General chat and programming model with strong multi-task performance.",
     contextWindow: 64_000,
     maxOutputTokens: 8192,
+    pricing: { inputCostPerMillion: 0.27, outputCostPerMillion: 1.1, currency: "USD" },
     capabilities: {
       capabilities: ["text_generation", "streaming", "code_generation", "large_context"],
     },
@@ -263,6 +268,7 @@ const BUILTIN_MOCK_MODELS: ModelDescriptorDto[] = [
     description: "Flagship Llama 3.3 executed with extreme speed on Groq LPUs.",
     contextWindow: 128_000,
     maxOutputTokens: 32768,
+    pricing: { inputCostPerMillion: 0.59, outputCostPerMillion: 0.79, currency: "USD" },
     capabilities: {
       capabilities: ["text_generation", "streaming", "code_generation", "large_context"],
     },
@@ -276,6 +282,7 @@ const BUILTIN_MOCK_MODELS: ModelDescriptorDto[] = [
     description: "Top-tier reasoning and coding model with multilingual mastery.",
     contextWindow: 128_000,
     maxOutputTokens: 8192,
+    pricing: { inputCostPerMillion: 2.0, outputCostPerMillion: 6.0, currency: "USD" },
     capabilities: {
       capabilities: ["text_generation", "streaming", "code_generation", "large_context"],
     },
@@ -289,6 +296,7 @@ const BUILTIN_MOCK_MODELS: ModelDescriptorDto[] = [
     description: "Lightweight local SLM for zero-cost routing and private inference.",
     contextWindow: 8192,
     maxOutputTokens: 4096,
+    pricing: { inputCostPerMillion: 0.0, outputCostPerMillion: 0.0, currency: "USD" },
     capabilities: {
       capabilities: ["text_generation", "streaming", "system_messages"],
     },
