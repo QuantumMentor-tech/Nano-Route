@@ -9,6 +9,7 @@ import {
   AboutPage,
   ContactPage,
   NotFoundPage,
+  DiagnosticsPage,
 } from "../pages";
 
 export const router = createHashRouter([
@@ -43,6 +44,10 @@ export const router = createHashRouter([
       {
         path: "contact",
         element: <ContactPage />,
+      },
+      {
+        path: "diagnostics",
+        element: <DiagnosticsPage />,
       },
       {
         path: "*",

@@ -42,6 +42,14 @@ export function validateExternalUrl(rawUrl: string): UrlValidationResult {
     return { isValid: false, error: "URL cannot be blank" };
   }
 
+  // Reject CRLF and control characters to prevent header injection or URI spoofing
+  if (/[\r\n\x00-\x1F\x7F]/.test(trimmed)) {
+    return {
+      isValid: false,
+      error: "URL contains prohibited control characters or line breaks",
+    };
+  }
+
   // Pre-check for raw malicious prefixes
   const lower = trimmed.toLowerCase();
   for (const dangerous of DISALLOWED_SCHEMES) {

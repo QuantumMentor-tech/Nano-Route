@@ -21,7 +21,7 @@ const PATH_REGEX = /(?:[A-Za-z]:\\[^\\/:*?"<>|\r\n\t]+|\/(?:Users|home|var|tmp|e
 /**
  * Regex to redact potential authorization headers, API keys, and sensitive tokens.
  */
-const SECRET_REGEX = /(?:Bearer\s+[A-Za-z0-9._-]+|sk-[A-Za-z0-9_-]{8,}|(?:key|secret|password|token)=[^\s&"']+)/gi;
+const SECRET_REGEX = /(?:Bearer\s+[A-Za-z0-9._-]+|sk-[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z-_]{30,}|gsk_[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{30,}|(?:key|secret|password|token)=[^\s&"']+)/gi;
 
 /**
  * Sanitizes an error message by stripping filesystem paths and secret tokens.

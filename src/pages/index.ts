@@ -6,4 +6,5 @@ export * from "./LicensePage";
 export * from "./AboutPage";
 export * from "./ContactPage";
 export * from "./NotFoundPage";
+export * from "./DiagnosticsPage";
 

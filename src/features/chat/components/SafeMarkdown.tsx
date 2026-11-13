@@ -14,6 +14,9 @@
 
 import React from "react";
 import { CodeBlock } from "./CodeBlock";
+import { parseBlocks, type MarkdownBlock } from "../utils/markdownParser.ts";
+
+export type { MarkdownBlock };
 
 export interface SafeMarkdownProps {
   content: string;
@@ -27,7 +30,12 @@ export interface SafeMarkdownProps {
 function isSafeUrl(url: string): boolean {
   try {
     const trimmed = url.trim();
-    return trimmed.startsWith("https://") || trimmed.startsWith("http://");
+    // Defense-in-depth: disallow control characters, newlines, and null bytes
+    if (/[\x00-\x1F\x7F]/.test(trimmed)) {
+      return false;
+    }
+    const parsed = new URL(trimmed);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
   } catch {
     return false;
   }
@@ -132,129 +140,6 @@ export function renderInline(text: string): React.ReactNode[] {
   }
 
   return elements;
-}
-
-type BlockType =
-  | { kind: "code"; language: string; content: string }
-  | { kind: "heading"; level: number; content: string }
-  | { kind: "blockquote"; content: string }
-  | { kind: "unordered-list"; items: string[] }
-  | { kind: "ordered-list"; items: string[] }
-  | { kind: "paragraph"; content: string };
-
-/**
- * Splits raw markdown into discrete semantic blocks.
- */
-function parseBlocks(markdown: string): BlockType[] {
-  const blocks: BlockType[] = [];
-  const lines = markdown.split(/\r?\n/);
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Fenced Code Block
-    if (line.trim().startsWith("```")) {
-      const language = line.trim().slice(3).trim();
-      const codeLines: string[] = [];
-      i++;
-      while (i < lines.length && !lines[i].trim().startsWith("```")) {
-        codeLines.push(lines[i]);
-        i++;
-      }
-      // Skip closing ```
-      i++;
-      blocks.push({
-        kind: "code",
-        language,
-        content: codeLines.join("\n"),
-      });
-      continue;
-    }
-
-    // Empty lines
-    if (line.trim() === "") {
-      i++;
-      continue;
-    }
-
-    // Headings: #, ##, ###, etc.
-    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
-    if (headingMatch) {
-      blocks.push({
-        kind: "heading",
-        level: headingMatch[1].length,
-        content: headingMatch[2],
-      });
-      i++;
-      continue;
-    }
-
-    // Blockquote: > ...
-    if (line.startsWith(">")) {
-      const quoteLines: string[] = [line.replace(/^>\s?/, "")];
-      i++;
-      while (i < lines.length && lines[i].startsWith(">")) {
-        quoteLines.push(lines[i].replace(/^>\s?/, ""));
-        i++;
-      }
-      blocks.push({
-        kind: "blockquote",
-        content: quoteLines.join("\n"),
-      });
-      continue;
-    }
-
-    // Unordered list item: - or *
-    if (/^\s*[-*]\s+/.test(line)) {
-      const listItems: string[] = [];
-      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
-        listItems.push(lines[i].replace(/^\s*[-*]\s+/, ""));
-        i++;
-      }
-      blocks.push({
-        kind: "unordered-list",
-        items: listItems,
-      });
-      continue;
-    }
-
-    // Ordered list item: 1. , 2. , etc.
-    if (/^\s*\d+\.\s+/.test(line)) {
-      const listItems: string[] = [];
-      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
-        listItems.push(lines[i].replace(/^\s*\d+\.\s+/, ""));
-        i++;
-      }
-      blocks.push({
-        kind: "ordered-list",
-        items: listItems,
-      });
-      continue;
-    }
-
-    // Paragraph
-    const paragraphLines: string[] = [line];
-    i++;
-    while (
-      i < lines.length &&
-      lines[i].trim() !== "" &&
-      !lines[i].trim().startsWith("```") &&
-      !lines[i].match(/^(#{1,6})\s+(.*)$/) &&
-      !lines[i].startsWith(">") &&
-      !/^\s*[-*]\s+/.test(lines[i]) &&
-      !/^\s*\d+\.\s+/.test(lines[i])
-    ) {
-      paragraphLines.push(lines[i]);
-      i++;
-    }
-    blocks.push({
-      kind: "paragraph",
-      content: paragraphLines.join("\n"),
-    });
-  }
-
-  return blocks;
 }
 
 export const SafeMarkdown: React.FC<SafeMarkdownProps> = ({

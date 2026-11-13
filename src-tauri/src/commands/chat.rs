@@ -18,6 +18,15 @@ pub async fn cmd_create_chat_session(
     pinned: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<ChatSession, String> {
+    let title = title.map(|t| {
+        let trimmed = t.trim();
+        if trimmed.chars().count() > 255 {
+            trimmed.chars().take(255).collect()
+        } else {
+            trimmed.to_string()
+        }
+    });
+
     state
         .chat_service
         .create_session(title, pinned)
@@ -56,6 +65,16 @@ pub async fn cmd_rename_chat_session(
     title: String,
     state: State<'_, AppState>,
 ) -> Result<ChatSession, String> {
+    let trimmed = title.trim();
+    if trimmed.is_empty() {
+        return Err("Session title cannot be empty".to_string());
+    }
+    let title: String = if trimmed.chars().count() > 255 {
+        trimmed.chars().take(255).collect()
+    } else {
+        trimmed.to_string()
+    };
+
     state
         .chat_service
         .rename_session(&session_id, &title)

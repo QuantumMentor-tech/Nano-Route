@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   DashboardHeader,
   RuntimeStatusCard,
@@ -7,8 +8,20 @@ import {
   DiagnosticDisclosure,
 } from "../features/dashboard";
 import { TelemetryDashboard } from "../features/telemetry";
+import { OnboardingModal, getStoredOnboardingProgress } from "../features/onboarding";
+import { ROUTE_PATHS } from "../routes/routePaths";
 
 export const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(() => {
+    try {
+      const progress = getStoredOnboardingProgress();
+      return progress.state === "NOT_STARTED";
+    } catch {
+      return false;
+    }
+  });
+
   return (
     <div
       className="nr-dashboard-page"
@@ -20,7 +33,7 @@ export const DashboardPage: React.FC = () => {
       }}
     >
       {/* 1. Header with Title & Quick CTA */}
-      <DashboardHeader />
+      <DashboardHeader onOpenOnboarding={() => setIsOnboardingOpen(true)} />
 
       {/* 2. Runtime Application Core Status */}
       <RuntimeStatusCard />
@@ -38,6 +51,14 @@ export const DashboardPage: React.FC = () => {
 
       {/* 6. Diagnostic Baseline Disclosure (Step 2-7 Continuity) */}
       <DiagnosticDisclosure />
+
+      {/* Guided Onboarding & First-Run Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onNavigateToChat={() => navigate(ROUTE_PATHS.CHAT)}
+        onNavigateToSettings={() => navigate(ROUTE_PATHS.SETTINGS)}
+      />
     </div>
   );
 };

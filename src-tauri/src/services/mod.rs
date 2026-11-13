@@ -16,6 +16,7 @@ pub mod execution;
 pub mod health;
 pub mod history;
 pub mod provider_preferences;
+pub mod recovery;
 pub mod streaming;
 pub mod telemetry;
 
@@ -29,6 +30,7 @@ pub use chat_orchestrator::{
 pub use context_builder::ConversationContextBuilder;
 pub use credentials::{CredentialVaultService, SaveCredentialInput};
 pub use data_lifecycle::DataLifecycleService;
+pub use recovery::RecoveryService;
 pub use execution::{
     CancellationResultDto, ExecutionContext, ExecutionLifecycleState, ExecutionManager,
     ExecutionStateDto, RecoveryContext, TerminationReason,

@@ -41,6 +41,7 @@ pub struct AppState {
     pub routing_explanation_service: Arc<crate::routing::RoutingExplanationService>,
     pub execution_manager: Arc<crate::services::execution::ExecutionManager>,
     pub data_lifecycle_service: Arc<DataLifecycleService>,
+    pub recovery_service: Arc<crate::services::RecoveryService>,
     pub initialized_at: RwLock<Option<String>>,
 }
 
@@ -72,6 +73,7 @@ impl AppState {
         routing_explanation_service: Arc<crate::routing::RoutingExplanationService>,
         execution_manager: Arc<crate::services::execution::ExecutionManager>,
         data_lifecycle_service: Arc<DataLifecycleService>,
+        recovery_service: Arc<crate::services::RecoveryService>,
     ) -> Self {
         Self {
             app_service,
@@ -100,6 +102,7 @@ impl AppState {
             routing_explanation_service,
             execution_manager,
             data_lifecycle_service,
+            recovery_service,
             initialized_at: RwLock::new(None),
         }
     }

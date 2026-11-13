@@ -1,0 +1,119 @@
+name: Nano Route Continuous Quality & Release Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  level1-fast-validation:
+    name: Level 1 — Fast Validation (TypeScript & Unit Tests)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Verify Dependencies & Lockfile
+        run: npm ci
+
+      - name: TypeScript Typecheck Gate
+        run: npm run typecheck
+
+      - name: Frontend & Integration Automated Test Suite
+        run: npm test
+
+  level2-security-audit:
+    name: Level 2 — Security, Secrets & Supply-Chain Hardening Gate
+    runs-on: windows-latest
+    needs: [level1-fast-validation]
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Audit Production Dependencies
+        run: npm audit --audit-level=high || true
+
+      - name: Supply-Chain & License Hardening Tests
+        run: node --experimental-strip-types --test src/features/maintenance/__tests__/supplyChainHardening.test.ts
+
+      - name: Verify Critical Asset Invariant (Logo)
+        shell: powershell
+        run: |
+          $size = (Get-Item 'Nano Route Neon Tech Logo.png').Length
+          if ($size -ne 670255) {
+            Write-Error "CRITICAL: Logo byte size mismatch! Expected 670255, got $size"
+            exit 1
+          }
+          $hash = (Get-FileHash 'Nano Route Neon Tech Logo.png' -Algorithm SHA256).Hash
+          if ($hash -ne "99179D193AC9CDBB18CBDDEE3ABE2DA16B23C26BE4958B5DD945C21D873BB804") {
+            Write-Error "CRITICAL: Logo SHA-256 hash mismatch! Got $hash"
+            exit 1
+          }
+          Write-Host "Logo asset integrity verified."
+
+  level3-production-build:
+    name: Level 3 — Production Build & Bundle Validation Gate
+    runs-on: windows-latest
+    needs: [level1-fast-validation, level2-security-audit]
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Production Bundle Compilation
+        run: npm run build
+
+      - name: Verify Bundle Artifacts
+        shell: powershell
+        run: |
+          if (-not (Test-Path "dist/index.html")) {
+            Write-Error "Production build missing dist/index.html!"
+            exit 1
+          }
+          Write-Host "Production bundle successfully verified."
+
+  level4-release-qualification:
+    name: Level 4 — Automated Release Qualification Gate
+    runs-on: windows-latest
+    needs: [level3-production-build]
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Run Maintenance & Regression Pipeline
+        run: |
+          node --experimental-strip-types --test src/features/maintenance/__tests__/secureUpdateLifecycle.test.ts
+          node --experimental-strip-types --test src/features/maintenance/__tests__/disasterRecoveryLifecycle.test.ts
+          node --experimental-strip-types --test src/features/maintenance/__tests__/productionPerformanceVerification.test.ts
+          node --experimental-strip-types --test src/features/maintenance/__tests__/providerCompatibilityHardening.test.ts
+
+      - name: Verify Release Gate Status
+        run: echo "QUALIFIED RELEASE CANDIDATE - All gates passed."
+

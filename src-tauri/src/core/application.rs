@@ -121,6 +121,12 @@ impl Application {
             provider_health_manager.clone(),
         ));
 
+        // Initialize Step 53 Disaster Recovery, Backup & Continuity Service
+        let recovery_service = Arc::new(crate::services::RecoveryService::new(
+            database_manager.clone(),
+            execution_manager.clone(),
+        ));
+
         let state = AppState::new(
             app_service,
             health_service,
@@ -148,6 +154,7 @@ impl Application {
             routing_explanation_service,
             execution_manager,
             data_lifecycle_service,
+            recovery_service,
         );
         state.mark_initialized("2026-11-07T00:00:00Z");
 

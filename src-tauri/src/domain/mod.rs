@@ -12,8 +12,15 @@ pub mod health;
 pub mod history;
 pub mod license;
 pub mod privacy;
+pub mod recovery;
 pub mod settings;
 pub mod telemetry;
+
+pub use recovery::{
+    BackupManifest, BackupScope, BackupValidationReport, BackupValidationStatus,
+    CreateBackupRequest, CreateBackupResult, RecoveryDataTier, RestoreBackupRequest,
+    RestoreBackupResult, RestorePreview, CURRENT_BACKUP_FORMAT_VERSION,
+};
 
 pub use app_info::AppInfo;
 pub use license::LicenseInfo;

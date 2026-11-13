@@ -221,6 +221,17 @@ export const IPC_COMMANDS = {
   RUN_DATA_CLEANUP: "cmd_run_data_cleanup",
   PREVIEW_FULL_DATA_WIPE: "cmd_preview_full_data_wipe",
   RUN_FULL_DATA_WIPE: "cmd_run_full_data_wipe",
+  CHECK_FOR_UPDATE: "cmd_check_for_update",
+  GET_UPDATE_STATE: "cmd_get_update_state",
+  DOWNLOAD_UPDATE: "cmd_download_update",
+  VERIFY_UPDATE: "cmd_verify_update",
+  PREPARE_UPDATE: "cmd_prepare_update",
+  APPLY_UPDATE: "cmd_apply_update",
+  DISMISS_UPDATE: "cmd_dismiss_update",
+  CREATE_BACKUP: "cmd_create_backup",
+  PREVIEW_RESTORE: "cmd_preview_restore",
+  RESTORE_BACKUP: "cmd_restore_backup",
+  LIST_BACKUPS: "cmd_list_backups",
 } as const;
 
 export type IpcCommandName = (typeof IPC_COMMANDS)[keyof typeof IPC_COMMANDS];
@@ -2955,6 +2966,187 @@ export interface LicenseInfoDto {
   entitlements: string[];
   licenseNotice: string;
 }
+
+// ============================================================================
+// Step 52: Secure Application Update Contracts
+// ============================================================================
+
+export type ReleaseChannel = "stable" | "preview" | "development";
+
+export type UpdateLifecycleState =
+  | "idle"
+  | "checking"
+  | "update_available"
+  | "up_to_date"
+  | "downloading"
+  | "verifying"
+  | "ready_to_install"
+  | "installing"
+  | "restart_pending"
+  | "verifying_install"
+  | "success"
+  | "check_failed"
+  | "download_failed"
+  | "verification_failed"
+  | "incompatible"
+  | "install_failed"
+  | "rollback_required";
+
+export interface UpdateMetadataDto {
+  productId: string;
+  version: string;
+  channel: ReleaseChannel;
+  platform: string;
+  architecture: string;
+  artifactUrl: string;
+  artifactSizeBytes: number;
+  artifactSha256: string;
+  signature: string;
+  releaseDate: string;
+  releaseNotes: string;
+  minSupportedVersion?: string;
+  requiresDatabaseMigration: boolean;
+  requiresRestart: boolean;
+  isMandatory: boolean;
+}
+
+export interface CheckForUpdateRequestDto {
+  channel?: ReleaseChannel;
+  customEndpoint?: string;
+}
+
+export interface UpdateCheckResultDto {
+  updateAvailable: boolean;
+  currentVersion: string;
+  metadata?: UpdateMetadataDto;
+  rejectionReason?: string;
+}
+
+export interface UpdateProgressDto {
+  state: UpdateLifecycleState;
+  bytesDownloaded: number;
+  totalBytes: number;
+  percentage: number;
+  error?: string;
+}
+
+export interface PrepareUpdateResultDto {
+  success: boolean;
+  stagedPath?: string;
+  error?: string;
+}
+
+export interface ApplyUpdateResultDto {
+  success: boolean;
+  restartRequired: boolean;
+  error?: string;
+}
+
+export interface RollbackPlanDto {
+  previousVersion: string;
+  currentVersion: string;
+  databaseBackupPath?: string;
+  canSafelyRollback: boolean;
+  warningNotice?: string;
+}
+
+// ============================================================================
+// --- Step 53 Disaster Recovery, Backup & Continuity Contracts ---
+// ============================================================================
+
+export type RecoveryDataTier =
+  | "tier1_irreplaceable_user"
+  | "tier2_security_sensitive"
+  | "tier3_derived_rebuildable"
+  | "tier4_reproducible_static";
+
+export type BackupScope =
+  | "full_database"
+  | "configuration_only"
+  | "safety_snapshot";
+
+export type BackupValidationStatus =
+  | "unverified"
+  | "valid"
+  | "corrupted"
+  | "incompatible_schema"
+  | "incompatible_app_version"
+  | "missing_manifest";
+
+export interface BackupManifestDto {
+  backupId: string;
+  backupFormatVersion: number;
+  applicationName: string;
+  applicationVersion: string;
+  databaseSchemaVersion: number;
+  backupScope: BackupScope;
+  createdAtMs: number;
+  artifactFilename: string;
+  artifactSizeBytes: number;
+  sha256Checksum: string;
+  sessionsCount: number;
+  messagesCount: number;
+  telemetryRecordsCount: number;
+  containsDpapiBlob: boolean;
+  platform: string;
+  architecture: string;
+}
+
+export interface BackupValidationReportDto {
+  status: BackupValidationStatus;
+  isValid: boolean;
+  errorMessage?: string;
+  manifest?: BackupManifestDto;
+  computedSha256?: string;
+  expectedSha256?: string;
+  checksumMatches: boolean;
+  schemaCompatible: boolean;
+  requiresMigration: boolean;
+}
+
+export interface CreateBackupRequestDto {
+  scope: BackupScope;
+  note?: string;
+}
+
+export interface CreateBackupResultDto {
+  success: boolean;
+  backupId: string;
+  backupPath: string;
+  manifest: BackupManifestDto;
+  validation: BackupValidationReportDto;
+}
+
+export interface RestorePreviewDto {
+  canProceed: boolean;
+  rejectionReason?: string;
+  manifest: BackupManifestDto;
+  currentAppVersion: string;
+  currentSchemaVersion: number;
+  targetSchemaVersion: number;
+  requiresMigration: boolean;
+  safetySnapshotPath?: string;
+  warningNotice: string;
+}
+
+export interface RestoreBackupRequestDto {
+  backupId: string;
+  confirmationToken: string;
+}
+
+export interface RestoreBackupResultDto {
+  success: boolean;
+  backupId: string;
+  restoredSessionsCount: number;
+  restoredMessagesCount: number;
+  restoredTelemetryCount: number;
+  restoredSchemaVersion: number;
+  safetySnapshotCreated: string;
+  ftsRebuilt: boolean;
+  errorMessage?: string;
+}
+
+
 
 
 

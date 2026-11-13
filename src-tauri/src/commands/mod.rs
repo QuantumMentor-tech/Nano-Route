@@ -16,6 +16,7 @@ pub mod history;
 pub mod local_slm;
 pub mod privacy;
 pub mod provider_health;
+pub mod recovery;
 pub mod registry;
 pub mod routing_explanation;
 pub mod routing_policy;
@@ -24,6 +25,7 @@ pub mod settings;
 pub mod streaming;
 pub mod task_analysis;
 pub mod telemetry;
+pub mod updater;
 
 pub use app::{cmd_get_app_info, cmd_get_license_info};
 pub use chat::{
@@ -63,6 +65,9 @@ pub use provider_health::{
     cmd_check_provider_health, cmd_get_all_provider_health, cmd_get_model_capabilities,
     cmd_get_provider_capabilities, cmd_get_provider_health, cmd_preflight_provider_request,
 };
+pub use recovery::{
+    cmd_create_backup, cmd_list_backups, cmd_preview_restore, cmd_restore_backup,
+};
 pub use registry::{
     cmd_get_registered_model, cmd_get_registered_provider, cmd_list_registered_models,
     cmd_list_registered_providers, cmd_resolve_effective_providers, cmd_resolve_historical_model,
@@ -89,4 +94,8 @@ pub use telemetry::{
     cmd_get_telemetry_cost_analytics_snapshot, cmd_get_telemetry_dashboard_snapshot,
     cmd_get_telemetry_performance_analytics_snapshot, cmd_list_telemetry_records,
     cmd_record_telemetry_event,
+};
+pub use updater::{
+    cmd_apply_update, cmd_check_for_update, cmd_dismiss_update, cmd_download_update,
+    cmd_get_update_state, cmd_prepare_update, cmd_verify_update,
 };

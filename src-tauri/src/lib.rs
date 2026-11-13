@@ -122,6 +122,17 @@ pub fn run() {
             commands::cmd_run_data_cleanup,
             commands::cmd_preview_full_data_wipe,
             commands::cmd_run_full_data_wipe,
+            commands::cmd_check_for_update,
+            commands::cmd_get_update_state,
+            commands::cmd_download_update,
+            commands::cmd_verify_update,
+            commands::cmd_prepare_update,
+            commands::cmd_apply_update,
+            commands::cmd_dismiss_update,
+            commands::cmd_create_backup,
+            commands::cmd_preview_restore,
+            commands::cmd_restore_backup,
+            commands::cmd_list_backups,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -6,6 +6,7 @@ import {
   FileKey,
   Info,
   Mail,
+  Activity,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTE_PATHS } from "./routePaths.ts";
@@ -70,6 +71,14 @@ export const NAVIGATION_SECTIONS: NavigationSection[] = [
         icon: Settings,
         section: "application",
         tooltip: "Preferences & API Keys",
+      },
+      {
+        id: "diagnostics",
+        label: "Diagnostics",
+        path: ROUTE_PATHS.DIAGNOSTICS,
+        icon: Activity,
+        section: "application",
+        tooltip: "System Health & Self-Tests",
       },
       {
         id: "license",

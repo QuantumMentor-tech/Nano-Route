@@ -1,11 +1,15 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Sparkles } from "lucide-react";
 import { Button, Badge } from "../../../components/ui";
 import { useApplicationState } from "../../../state";
 import { ROUTE_PATHS } from "../../../routes/routePaths";
 
-export const DashboardHeader: React.FC = () => {
+export interface DashboardHeaderProps {
+  onOpenOnboarding?: () => void;
+}
+
+export const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onOpenOnboarding }) => {
   const { state } = useApplicationState();
 
   return (
@@ -54,6 +58,14 @@ export const DashboardHeader: React.FC = () => {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        {onOpenOnboarding && (
+          <Button variant="secondary" size="sm" onClick={onOpenOnboarding}>
+            <Sparkles
+              style={{ width: "16px", height: "16px", marginRight: "0.5rem", color: "var(--nr-accent-purple)" }}
+            />
+            Setup Guide
+          </Button>
+        )}
         <Link to={ROUTE_PATHS.CHAT} style={{ textDecoration: "none" }}>
           <Button variant="primary" size="sm">
             <MessageSquare

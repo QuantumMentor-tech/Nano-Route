@@ -27,3 +27,5 @@ export * from "./task_analysis.ts";
 export * from "./routing_scoring.ts";
 export * from "./routing_policy.ts";
 export * from "./license.ts";
+export * from "./updater.ts";
+export * from "./recovery.ts";

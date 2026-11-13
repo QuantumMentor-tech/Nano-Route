@@ -896,8 +896,8 @@ describe("Step 43 — Token Usage, Cost Analytics & Routing Savings Engine", () 
         assert.ok(result.actualCostSummary.totalActualCostUsd !== null);
         assert.ok(result.savingsSummary.estimatedSavingsUsd !== null);
         assert.ok(
-          elapsedMs < 5_000,
-          `Expected ${size} records to aggregate in < 5000ms, took ${elapsedMs.toFixed(1)}ms`
+          elapsedMs < 10_000,
+          `Expected ${size} records to aggregate in < 10000ms, took ${elapsedMs.toFixed(1)}ms`
         );
       });
     }

@@ -1,0 +1,71 @@
+{
+  "product": "Nano Route",
+  "version": "0.1.0",
+  "buildChannel": "Alpha Development",
+  "releaseCandidate": "RC1",
+  "commit": "45d78eb",
+  "buildDate": "2026-11-13T16:15:00Z",
+  "buildEnvironment": {
+    "os": "Windows 10.0.26100 x86_64",
+    "node": "v26.8.2",
+    "npm": "11.19.1",
+    "tauriCli": "2.12.4",
+    "webView2": "157.0.4341.57",
+    "framework": "React 18 / TypeScript 5.6",
+    "bundler": "Vite 5.4.11"
+  },
+  "packageMetadata": {
+    "identifier": "com.nanoroute.desktop",
+    "productName": "Nano Route",
+    "executable": "nano-route.exe",
+    "license": "MIT License",
+    "copyright": "Copyright (c) 2026 Nano Route Engineering",
+    "platform": "Windows Desktop (x86_64, Windows 10 / 11)"
+  },
+  "artifacts": [
+    {
+      "name": "dist/index.html",
+      "type": "frontend-entrypoint",
+      "sizeBytes": 396,
+      "sha256": "49F8613353A79937938B0CBE1B3C78FFF3012AF91AA94364F4DF43E394E095DD"
+    },
+    {
+      "name": "dist/assets/index-B-CF5UL2.css",
+      "type": "compiled-stylesheet",
+      "sizeBytes": 31365,
+      "sha256": "8D465F4E3153F01550B4964D1717BBA15A6212DC45056374C48C67CDB4CD63E8"
+    },
+    {
+      "name": "dist/assets/index-yW3JULo-.js",
+      "type": "compiled-bundle",
+      "sizeBytes": 834104,
+      "sha256": "342764F9AAD9F8892F9A700E22CC560BF9E7427D5DE1BE068E48B31F21E90E72"
+    },
+    {
+      "name": "Nano Route Neon Tech Logo.png",
+      "type": "master-brand-asset",
+      "sizeBytes": 670255,
+      "sha256": "99179D193AC9CDBB18CBDDEE3ABE2DA16B23C26BE4958B5DD945C21D873BB804"
+    },
+    {
+      "name": "src-tauri/icons/icon.ico",
+      "type": "windows-icon",
+      "sizeBytes": 88930,
+      "sha256": "AA368A85B5F085D39AC1B8A58C84705C8F712B0D11B8FB0B99A47FE8CC35E953"
+    }
+  ],
+  "signing": {
+    "status": "unsigned_local_candidate",
+    "method": "Authenticode / Windows Store Packaging Pipeline",
+    "digestAlgorithm": "sha256"
+  },
+  "qaStatus": "QA PASSED (562 tests passing, 0 failures, 285 suites)",
+  "securityGate": "PASSED WITH DOCUMENTED LOW-RISK FINDINGS",
+  "releaseState": "RELEASE CANDIDATE APPROVED WITH DOCUMENTED LIMITATIONS",
+  "knownLimitations": [
+    "Native Windows executable packaging (MSI / MSIX / NSIS) requires host installation of Visual Studio MSVC C++ Build Tools and Rust 2021 toolchain",
+    "Production Authenticode digital certificate must be attached in CI/CD signing runner prior to public Store distribution",
+    "Air-gapped local SLM execution requires pre-downloaded ONNX model weights in local application directory"
+  ]
+}
+
