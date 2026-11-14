@@ -7,7 +7,7 @@
 //! and virtual default reset.
 */
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -17,14 +17,20 @@ import {
   RefreshCw,
   Sliders,
   Sparkles,
+  Download,
+  Upload,
+  Layout,
+  PanelLeft,
+  RotateCcw,
 } from "lucide-react";
 import {
-  resetAllAppSettings,
   setAppSetting,
   type AppSettingsSnapshot,
   type RoutingPreferenceMode,
+  type StartupRoutePreference,
 } from "../../../services/ipc";
 import { getRoutingProfileDescription } from "../settingsFormatters";
+import { usePreferences } from "../PreferencesContext.tsx";
 
 interface GeneralSettingsPanelProps {
   appSettings: AppSettingsSnapshot;
@@ -37,24 +43,37 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
   onSettingsChanged,
   onNavigateTab,
 }) => {
+  const { exportPreferences, importPreferences, resetAll } = usePreferences();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const handleToggle = async (
-    key: "window.start_maximized" | "telemetry.enabled",
-    currentVal: boolean
-  ) => {
+  const handleToggle = async (key: any, currentVal: boolean, label: string) => {
     try {
       setUpdatingKey(key);
       const nextVal = !currentVal;
       await setAppSetting(key, String(nextVal));
       await onSettingsChanged();
-      setNotice(`Updated ${key === "window.start_maximized" ? "Window Startup" : "Telemetry"} setting.`);
+      setNotice(`Updated ${label}.`);
       setTimeout(() => setNotice(null), 3000);
     } catch (err: unknown) {
       setNotice(`Failed to update setting: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setUpdatingKey(null);
+    }
+  };
+
+  const handleStartupRouteChange = async (route: StartupRoutePreference) => {
+    try {
+      setUpdatingKey("workspace.startup_route");
+      await setAppSetting("workspace.startup_route", route);
+      await onSettingsChanged();
+      setNotice(`Default startup route set to ${route.toUpperCase()}.`);
+      setTimeout(() => setNotice(null), 3000);
+    } catch (err: unknown) {
+      setNotice(`Failed to set startup route: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setUpdatingKey(null);
     }
@@ -75,13 +94,55 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
     }
   };
 
+  const handleExportPreferences = () => {
+    try {
+      const json = exportPreferences();
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `nano-route-preferences-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setNotice("Exported user preferences to JSON file.");
+      setTimeout(() => setNotice(null), 3000);
+    } catch (err: unknown) {
+      setNotice(`Export failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const res = await importPreferences(text);
+      await onSettingsChanged();
+      if (res.success) {
+        setNotice(`Successfully imported ${res.appliedCount} preference settings.`);
+      } else {
+        setNotice(`Import failed: ${res.errors.join("; ")}`);
+      }
+      setTimeout(() => setNotice(null), 4000);
+    } catch (err: unknown) {
+      setNotice(`Failed to read file: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const handleResetDefaults = async () => {
     try {
       setResetting(true);
-      await resetAllAppSettings();
+      await resetAll();
       await onSettingsChanged();
       setShowResetConfirm(false);
-      setNotice("Application settings reset to documented virtual defaults.");
+      setNotice("All user preferences safely reset to documented virtual defaults.");
       setTimeout(() => setNotice(null), 3500);
     } catch (err: unknown) {
       setNotice(`Reset failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -234,7 +295,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
               aria-checked={appSettings.windowStartMaximized}
               aria-label="Start Window Maximized"
               disabled={updatingKey === "window.start_maximized"}
-              onClick={() => handleToggle("window.start_maximized", appSettings.windowStartMaximized)}
+              onClick={() => handleToggle("window.start_maximized", appSettings.windowStartMaximized, "Start Window Maximized")}
               style={{
                 width: "44px",
                 height: "24px",
@@ -255,6 +316,76 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                   position: "absolute",
                   top: "3px",
                   left: appSettings.windowStartMaximized ? "23px" : "3px",
+                  transition: "left 0.2s ease",
+                }}
+              />
+            </button>
+          </div>
+
+          {/* Step 68: Restore Previous Workspace Session Toggle */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0.75rem 1rem",
+              borderRadius: "0.5rem",
+              background: "var(--nr-surface-raised)",
+              border: "1px solid var(--nr-border-subtle)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <RotateCcw style={{ width: "18px", height: "18px", color: "var(--nr-text-secondary)" }} />
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--nr-text-primary)" }}>
+                    Restore Previous Workspace Session
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "0.6875rem",
+                      fontWeight: 600,
+                      padding: "0.125rem 0.375rem",
+                      borderRadius: "9999px",
+                      background: appSettings.lastExitStatus === "unexpected_exit" ? "rgba(245, 158, 11, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                      color: appSettings.lastExitStatus === "unexpected_exit" ? "var(--nr-accent-warning, #f59e0b)" : "var(--nr-accent-success, #10b981)",
+                    }}
+                  >
+                    {appSettings.lastExitStatus === "unexpected_exit" ? "Recovered Unexpected Exit" : "Clean Exit State"}
+                  </span>
+                </div>
+                <div style={{ fontSize: "0.8125rem", color: "var(--nr-text-secondary)" }}>
+                  Re-opens your last visited navigation route and panel context when Nano Route launches.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={appSettings.restorePreviousSession ?? true}
+              aria-label="Restore Previous Workspace Session"
+              disabled={updatingKey === "workspace.restore_previous_session"}
+              onClick={() => handleToggle("workspace.restore_previous_session", appSettings.restorePreviousSession ?? true, "Session Continuity")}
+              style={{
+                width: "44px",
+                height: "24px",
+                borderRadius: "12px",
+                background: (appSettings.restorePreviousSession ?? true) ? "var(--nr-accent-purple)" : "var(--nr-border-subtle)",
+                border: "none",
+                cursor: "pointer",
+                position: "relative",
+                transition: "background 0.2s ease",
+              }}
+            >
+              <div
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  borderRadius: "50%",
+                  background: "#fff",
+                  position: "absolute",
+                  top: "3px",
+                  left: (appSettings.restorePreviousSession ?? true) ? "23px" : "3px",
                   transition: "left 0.2s ease",
                 }}
               />
@@ -290,7 +421,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
               aria-checked={appSettings.telemetryEnabled}
               aria-label="Enable Local Operational Telemetry"
               disabled={updatingKey === "telemetry.enabled"}
-              onClick={() => handleToggle("telemetry.enabled", appSettings.telemetryEnabled)}
+              onClick={() => handleToggle("telemetry.enabled", appSettings.telemetryEnabled, "Telemetry")}
               style={{
                 width: "44px",
                 height: "24px",
@@ -316,6 +447,210 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
               />
             </button>
           </div>
+        </div>
+      </section>
+
+      {/* Workspace & Navigation Behavior */}
+      <section
+        style={{
+          background: "var(--nr-surface-card)",
+          border: "1px solid var(--nr-border-subtle)",
+          borderRadius: "0.75rem",
+          padding: "1.25rem",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+          <Layout style={{ width: "20px", height: "20px", color: "var(--nr-accent-purple)" }} />
+          <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--nr-text-primary)", margin: 0 }}>
+            Workspace Startup & Navigation
+          </h2>
+        </div>
+        <p style={{ fontSize: "0.875rem", color: "var(--nr-text-secondary)", margin: "0 0 1rem 0" }}>
+          Configure initial application view on startup and navigation sidebar behavior.
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {/* Startup Route Selector */}
+          <div
+            style={{
+              padding: "0.875rem 1rem",
+              borderRadius: "0.5rem",
+              background: "var(--nr-surface-raised)",
+              border: "1px solid var(--nr-border-subtle)",
+            }}
+          >
+            <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--nr-text-primary)", marginBottom: "0.25rem" }}>
+              Initial Startup Destination
+            </div>
+            <div style={{ fontSize: "0.8125rem", color: "var(--nr-text-secondary)", marginBottom: "0.75rem" }}>
+              Select which workspace loads automatically when Nano Route boots up in normal state.
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                type="button"
+                onClick={() => handleStartupRouteChange("overview")}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "0.375rem",
+                  background: (appSettings.startupRoute ?? "overview") === "overview" ? "var(--nr-accent-purple)" : "var(--nr-bg-surface)",
+                  color: (appSettings.startupRoute ?? "overview") === "overview" ? "#fff" : "var(--nr-text-secondary)",
+                  border: "1px solid var(--nr-border-subtle)",
+                  fontSize: "0.8125rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Dashboard Overview
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStartupRouteChange("chat")}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "0.375rem",
+                  background: (appSettings.startupRoute ?? "overview") === "chat" ? "var(--nr-accent-purple)" : "var(--nr-bg-surface)",
+                  color: (appSettings.startupRoute ?? "overview") === "chat" ? "#fff" : "var(--nr-text-secondary)",
+                  border: "1px solid var(--nr-border-subtle)",
+                  fontSize: "0.8125rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Chat Workspace
+              </button>
+            </div>
+          </div>
+
+          {/* Sidebar Default State Toggle */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0.875rem 1rem",
+              borderRadius: "0.5rem",
+              background: "var(--nr-surface-raised)",
+              border: "1px solid var(--nr-border-subtle)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <PanelLeft style={{ width: "18px", height: "18px", color: "var(--nr-text-secondary)" }} />
+              <div>
+                <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--nr-text-primary)" }}>
+                  Collapse Sidebar by Default
+                </div>
+                <div style={{ fontSize: "0.8125rem", color: "var(--nr-text-secondary)" }}>
+                  Start with the navigation sidebar collapsed into icon-only mode to increase main screen width.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={Boolean(appSettings.sidebarCollapsed)}
+              aria-label="Collapse Sidebar by Default"
+              disabled={updatingKey === "workspace.sidebar_collapsed"}
+              onClick={() =>
+                handleToggle(
+                  "workspace.sidebar_collapsed",
+                  Boolean(appSettings.sidebarCollapsed),
+                  "Sidebar Default State"
+                )
+              }
+              style={{
+                width: "44px",
+                height: "24px",
+                borderRadius: "12px",
+                background: appSettings.sidebarCollapsed ? "var(--nr-accent-purple)" : "var(--nr-border-subtle)",
+                border: "none",
+                cursor: "pointer",
+                position: "relative",
+                transition: "background 0.2s ease",
+              }}
+            >
+              <div
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  borderRadius: "50%",
+                  background: "#fff",
+                  position: "absolute",
+                  top: "3px",
+                  left: appSettings.sidebarCollapsed ? "23px" : "3px",
+                  transition: "left 0.2s ease",
+                }}
+              />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Preferences Backup & Portability */}
+      <section
+        style={{
+          background: "var(--nr-surface-card)",
+          border: "1px solid var(--nr-border-subtle)",
+          borderRadius: "0.75rem",
+          padding: "1.25rem",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+          <Download style={{ width: "20px", height: "20px", color: "var(--nr-accent-purple)" }} />
+          <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--nr-text-primary)", margin: 0 }}>
+            Preferences Portability & Backup
+          </h2>
+        </div>
+        <p style={{ fontSize: "0.875rem", color: "var(--nr-text-secondary)", margin: "0 0 1rem 0" }}>
+          Export or import your non-sensitive presentation and behavior settings. <strong>API keys and credentials are never included.</strong>
+        </p>
+
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={handleExportPreferences}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.5rem 1rem",
+              borderRadius: "0.375rem",
+              background: "var(--nr-accent-purple)",
+              color: "#fff",
+              border: "none",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            <Download style={{ width: "16px", height: "16px" }} />
+            <span>Export Preferences (JSON)</span>
+          </button>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.5rem 1rem",
+              borderRadius: "0.375rem",
+              background: "transparent",
+              border: "1px solid var(--nr-border-subtle)",
+              color: "var(--nr-text-primary)",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
+          >
+            <Upload style={{ width: "16px", height: "16px" }} />
+            <span>Import Preferences</span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              onChange={handleImportFile}
+              style={{ display: "none" }}
+            />
+          </label>
         </div>
       </section>
 

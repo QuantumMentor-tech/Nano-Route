@@ -7,25 +7,38 @@
 */
 
 import React, { useState, useCallback } from "react";
-import { Bot, Check, Copy, HelpCircle, AlertTriangle, AlertCircle } from "lucide-react";
+import { Bot, Check, Copy, HelpCircle, AlertTriangle, AlertCircle, Layers } from "lucide-react";
 import type { ChatMessage } from "../types";
 import type { RoutingExplanationDto } from "../../../services/ipc/types";
 import { getRoutingExplanation } from "../../../services/ipc/chat";
 import { SafeMarkdown } from "./SafeMarkdown";
 import { ModelBadge } from "./ModelBadge";
 import { RoutingExplanationPanel } from "./RoutingExplanationPanel";
+import { VariantSwitcher } from "../../conversation";
+import { BookmarkButton, isMessageBookmarked, saveBookmark, removeBookmark } from "../../organization";
+import { AddToCollectionModal } from "../../context-collections";
 
 export interface AssistantMessageProps {
   message: ChatMessage;
+  variantIndex?: number;
+  totalVariants?: number;
+  onPreviousVariant?: () => void;
+  onNextVariant?: () => void;
   className?: string;
 }
 
 export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   message,
+  variantIndex = 1,
+  totalVariants = 1,
+  onPreviousVariant,
+  onNextVariant,
   className = "",
 }) => {
   const [copied, setCopied] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
+  const [isAddToCollectionOpen, setIsAddToCollectionOpen] = useState<boolean>(false);
   const [explanation, setExplanation] = useState<RoutingExplanationDto | null>(null);
   const [isLoadingExplanation, setIsLoadingExplanation] = useState(false);
   const [explanationError, setExplanationError] = useState<string | null>(null);
@@ -61,6 +74,30 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
         return null;
     }
   };
+
+  // Check initial bookmark state
+  React.useEffect(() => {
+    let isMounted = true;
+    void isMessageBookmarked(message.id).then((bookmarked) => {
+      if (isMounted) setIsBookmarked(bookmarked);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [message.id]);
+
+  const handleToggleBookmark = useCallback(async () => {
+    if (isBookmarked) {
+      await removeBookmark({ messageId: message.id });
+      setIsBookmarked(false);
+    } else {
+      await saveBookmark({
+        sessionId: message.sessionId,
+        messageId: message.id,
+      });
+      setIsBookmarked(true);
+    }
+  }, [isBookmarked, message.id, message.sessionId]);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -235,6 +272,16 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
             <HelpCircle style={{ width: "11px", height: "11px" }} />
             <span>{showExplanation ? "Hide route details" : "Why this route?"}</span>
           </button>
+        )}
+
+        {/* Step 81: Variant Switcher when multiple responses exist */}
+        {totalVariants > 1 && onPreviousVariant && onNextVariant && (
+          <VariantSwitcher
+            currentIndex={variantIndex}
+            totalVariants={totalVariants}
+            onSelectPrevious={onPreviousVariant}
+            onSelectNext={onNextVariant}
+          />
         )}
 
         <span>{formattedTime}</span>
@@ -500,11 +547,49 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
           style={{
             display: "flex",
             justifyContent: "flex-end",
+            alignItems: "center",
+            gap: "0.4rem",
             marginTop: "0.5rem",
             paddingTop: "0.35rem",
             borderTop: "1px solid var(--nr-border-subtle, #1f222b)",
           }}
         >
+          {/* Step 82: Bookmark action button */}
+          <BookmarkButton
+            isBookmarked={isBookmarked}
+            onToggle={handleToggleBookmark}
+          />
+
+          {/* Step 83: Add to Context Collection button */}
+          <button
+            type="button"
+            onClick={() => setIsAddToCollectionOpen(true)}
+            aria-label="Add to Context Collection"
+            title="Add to Context Collection"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.3rem",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              padding: "0.2rem 0.5rem",
+              fontSize: "0.75rem",
+              color: "var(--nr-text-muted, #71717a)",
+              borderRadius: "var(--nr-radius-sm, 4px)",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "var(--nr-text-primary, #ffffff)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "var(--nr-text-muted, #71717a)";
+            }}
+          >
+            <Layers style={{ width: "13px", height: "13px" }} />
+            <span>Collect</span>
+          </button>
+
           <button
             type="button"
             onClick={handleCopy}
@@ -561,6 +646,16 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
             />
           </div>
         )}
+
+        {/* Step 83: Add To Collection Modal */}
+        <AddToCollectionModal
+          isOpen={isAddToCollectionOpen}
+          onClose={() => setIsAddToCollectionOpen(false)}
+          sourceType="MESSAGE"
+          sourceId={message.id}
+          sessionId={message.sessionId}
+          previewText={message.content.substring(0, 200)}
+        />
       </div>
     </div>
   );

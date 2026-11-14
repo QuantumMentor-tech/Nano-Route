@@ -7,17 +7,31 @@
 */
 
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Send, Square } from "lucide-react";
+import { Send, Square, FileText, Paperclip, Layers, ShieldCheck } from "lucide-react";
+import { useComposerDraft, DraftStatusIndicator } from "../../composer";
+import {
+  AttachmentChip,
+  validateAttachment,
+  prepareFileContext,
+  categorizeFile,
+  formatAttachmentsAsPromptContext,
+  type LocalAttachment,
+} from "../../attachments";
 
 export interface ComposerProps {
   onSubmit: (prompt: string) => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
+  sessionId?: string | null;
   disabled?: boolean;
   isSubmitting?: boolean;
   isCancelling?: boolean;
   placeholder?: string;
   maxLength?: number;
   initialValue?: string;
+  contextIndicator?: React.ReactNode;
+  onOpenTemplates?: () => void;
+  onOpenCollections?: () => void;
+  onInspectRequest?: (prompt: string, attachments: LocalAttachment[]) => void;
   className?: string;
 }
 
@@ -28,17 +42,35 @@ const MAX_HEIGHT = 160;
 export const Composer: React.FC<ComposerProps> = ({
   onSubmit,
   onCancel,
+  sessionId = null,
   disabled = false,
   isSubmitting = false,
   isCancelling = false,
   placeholder = "Message Nano Route (Enter to send, Shift+Enter for new line)...",
   maxLength = DEFAULT_MAX_LENGTH,
   initialValue = "",
+  contextIndicator,
+  onOpenTemplates,
+  onOpenCollections,
+  onInspectRequest,
   className = "",
 }) => {
-  const [text, setText] = useState<string>(initialValue);
+  const {
+    content: text,
+    setContent: setText,
+    saveStatus,
+    undo,
+    redo,
+    clearDraft,
+  } = useComposerDraft({
+    sessionId,
+    initialContent: initialValue,
+  });
+
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync initialValue if provided externally (e.g. prompt chip click)
   useEffect(() => {
@@ -74,18 +106,100 @@ export const Composer: React.FC<ComposerProps> = ({
     }
   };
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newAttachments: LocalAttachment[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const validation = validateAttachment(file, attachments.length + newAttachments.length);
+      const attachmentId = `att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const metadata = {
+        id: attachmentId,
+        name: file.name,
+        sizeBytes: file.size,
+        extension: file.name.split(".").pop() || "",
+        mimeType: file.type,
+        category: categorizeFile(file.name, file.type),
+        lastModified: file.lastModified,
+      };
+
+      if (!validation.isValid) {
+        newAttachments.push({
+          id: attachmentId,
+          file,
+          metadata,
+          status: validation.status,
+          errorMessage: validation.error,
+        });
+      } else {
+        try {
+          const prepared = await prepareFileContext(file, attachmentId);
+          newAttachments.push({
+            id: attachmentId,
+            file,
+            metadata,
+            status: "READY",
+            preparedContext: prepared,
+          });
+        } catch {
+          newAttachments.push({
+            id: attachmentId,
+            file,
+            metadata,
+            status: "ERROR",
+            errorMessage: "Failed to read local file.",
+          });
+        }
+      }
+    }
+
+    setAttachments((prev) => [...prev, ...newAttachments]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
+
   const handleSend = async () => {
     const trimmed = text.trim();
-    if (!trimmed || disabled || isSubmitting) return;
+    if ((!trimmed && attachments.length === 0) || disabled || isSubmitting) return;
 
-    if (trimmed.length > maxLength) {
+    // Check for any unresolved error attachments
+    const hasUnresolvedErrors = attachments.some((a) =>
+      ["UNSUPPORTED", "TOO_LARGE", "UNREADABLE", "ERROR"].includes(a.status)
+    );
+    if (hasUnresolvedErrors) {
+      setValidationError("Please remove unsupported or failed attachments before sending.");
+      return;
+    }
+
+    // Format attachments context into prompt
+    const preparedContexts = attachments
+      .map((a) => a.preparedContext)
+      .filter((ctx): ctx is NonNullable<typeof ctx> => ctx !== undefined);
+
+    const attachmentsContext = formatAttachmentsAsPromptContext(preparedContexts);
+    const finalPrompt = attachmentsContext
+      ? trimmed
+        ? `${trimmed}\n\n${attachmentsContext}`
+        : attachmentsContext
+      : trimmed;
+
+    if (finalPrompt.length > maxLength) {
       setValidationError(`Prompt exceeds maximum allowed length of ${maxLength.toLocaleString()} characters.`);
       return;
     }
 
     try {
-      await onSubmit(trimmed);
-      setText("");
+      await onSubmit(finalPrompt);
+      await clearDraft();
+      setAttachments([]);
       setValidationError(null);
       // Reset height
       if (textareaRef.current) {
@@ -98,6 +212,23 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Undo: Ctrl+Z (without Shift)
+    if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+      return;
+    }
+
+    // Redo: Ctrl+Y or Ctrl+Shift+Z
+    if (
+      ((e.ctrlKey || e.metaKey) && e.key === "y") ||
+      ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "z" || e.key === "Z"))
+    ) {
+      e.preventDefault();
+      redo();
+      return;
+    }
+
     if (e.key === "Escape" && isSubmitting && onCancel && !isCancelling) {
       e.preventDefault();
       void onCancel();
@@ -110,7 +241,7 @@ export const Composer: React.FC<ComposerProps> = ({
     }
   };
 
-  const isBlank = text.trim().length === 0;
+  const isBlank = text.trim().length === 0 && attachments.length === 0;
   const canSend = !isBlank && !disabled && !isSubmitting && text.length <= maxLength;
 
   return (
@@ -138,6 +269,28 @@ export const Composer: React.FC<ComposerProps> = ({
           }}
         >
           {validationError}
+        </div>
+      )}
+
+      {/* Selected Attachments Row */}
+      {attachments.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "0.4rem",
+            padding: "0.1rem 0",
+          }}
+          aria-label="Attached files"
+        >
+          {attachments.map((att) => (
+            <AttachmentChip
+              key={att.id}
+              attachment={att}
+              onRemove={handleRemoveAttachment}
+              disabled={isSubmitting}
+            />
+          ))}
         </div>
       )}
 
@@ -286,18 +439,134 @@ export const Composer: React.FC<ComposerProps> = ({
               : "Generating response • Press Escape or Stop to cancel"
             : "Enter to send • Shift+Enter for new line"}
         </span>
-        {text.length > 0 && (
-          <span
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          {/* Hidden native file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            multiple
+            style={{ display: "none" }}
+            aria-hidden="true"
+          />
+
+          {/* Attach file button */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSubmitting || attachments.length >= 5}
+            aria-label="Attach local files"
+            title="Attach local text, code, structured, or image files (up to 5)"
             style={{
-              color:
-                text.length > maxLength
-                  ? "var(--nr-status-error, #ef4444)"
-                  : "var(--nr-text-muted, #71717a)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.25rem",
+              padding: "0.2rem 0.45rem",
+              borderRadius: "var(--nr-radius-sm, 4px)",
+              border: "1px solid var(--nr-border-default, #27272a)",
+              backgroundColor: "transparent",
+              color: "var(--nr-text-secondary, #a1a1aa)",
+              fontSize: "0.75rem",
+              cursor: isSubmitting || attachments.length >= 5 ? "not-allowed" : "pointer",
+              transition: "all 0.15s ease",
             }}
           >
-            {text.length.toLocaleString()} / {maxLength.toLocaleString()}
-          </span>
-        )}
+            <Paperclip style={{ width: "12px", height: "12px" }} />
+            <span>Attach</span>
+          </button>
+
+          <DraftStatusIndicator
+            status={saveStatus}
+            onClearDraft={() => void clearDraft()}
+            canClear={text.trim().length > 0}
+          />
+          {onOpenTemplates && (
+            <button
+              type="button"
+              onClick={onOpenTemplates}
+              aria-label="Browse prompt templates"
+              title="Browse prompt templates and presets"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.25rem",
+                padding: "0.2rem 0.45rem",
+                borderRadius: "var(--nr-radius-sm, 4px)",
+                border: "1px solid var(--nr-border-default, #27272a)",
+                backgroundColor: "transparent",
+                color: "var(--nr-text-secondary, #a1a1aa)",
+                fontSize: "0.75rem",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <FileText style={{ width: "12px", height: "12px" }} />
+              <span>Templates</span>
+            </button>
+          )}
+          {onOpenCollections && (
+            <button
+              type="button"
+              onClick={onOpenCollections}
+              aria-label="Browse context collections"
+              title="Browse and insert reference packs and context collections"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.25rem",
+                padding: "0.2rem 0.45rem",
+                borderRadius: "var(--nr-radius-sm, 4px)",
+                border: "1px solid var(--nr-border-default, #27272a)",
+                backgroundColor: "transparent",
+                color: "var(--nr-text-secondary, #a1a1aa)",
+                fontSize: "0.75rem",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <Layers style={{ width: "12px", height: "12px" }} />
+              <span>Collections</span>
+            </button>
+          )}
+          {onInspectRequest && (
+            <button
+              type="button"
+              onClick={() => onInspectRequest(text, attachments)}
+              disabled={!canSend}
+              aria-label="Inspect request before sending"
+              title="Inspect canonical request payload, preflight tokens, and budget"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.25rem",
+                padding: "0.2rem 0.45rem",
+                borderRadius: "var(--nr-radius-sm, 4px)",
+                border: "1px solid var(--nr-border-default, #27272a)",
+                backgroundColor: "transparent",
+                color: canSend ? "var(--nr-text-secondary, #a1a1aa)" : "var(--nr-text-disabled, #52525b)",
+                fontSize: "0.75rem",
+                cursor: canSend ? "pointer" : "not-allowed",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <ShieldCheck style={{ width: "12px", height: "12px" }} />
+              <span>Inspect</span>
+            </button>
+          )}
+          {contextIndicator}
+          {text.length > 0 && (
+            <span
+              style={{
+                color:
+                  text.length > maxLength
+                    ? "var(--nr-status-error, #ef4444)"
+                    : "var(--nr-text-muted, #71717a)",
+              }}
+            >
+              {text.length.toLocaleString()} / {maxLength.toLocaleString()}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

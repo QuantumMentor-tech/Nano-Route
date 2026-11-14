@@ -62,6 +62,31 @@ pub static BUILTIN_MIGRATIONS: &[Migration] = &[
         name: "006_history_search_indexes",
         sql: include_str!("006_history_search_indexes.sql"),
     },
+    Migration {
+        version: 7,
+        name: "007_prompt_templates",
+        sql: include_str!("007_prompt_templates.sql"),
+    },
+    Migration {
+        version: 8,
+        name: "008_composer_drafts",
+        sql: include_str!("008_composer_drafts.sql"),
+    },
+    Migration {
+        version: 9,
+        name: "009_conversation_branches",
+        sql: include_str!("009_conversation_branches.sql"),
+    },
+    Migration {
+        version: 10,
+        name: "010_conversation_organization",
+        sql: include_str!("010_conversation_organization.sql"),
+    },
+    Migration {
+        version: 11,
+        name: "011_context_collections",
+        sql: include_str!("011_context_collections.sql"),
+    },
 ];
 
 /// Execution summary returned after running database migrations.

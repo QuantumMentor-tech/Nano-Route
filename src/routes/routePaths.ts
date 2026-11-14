@@ -12,6 +12,7 @@ export const ROUTE_PATHS = {
   ABOUT: "/about",
   CONTACT: "/contact",
   DIAGNOSTICS: "/diagnostics",
+  HELP: "/help",
 } as const;
 
 export type RoutePath = typeof ROUTE_PATHS[keyof typeof ROUTE_PATHS];

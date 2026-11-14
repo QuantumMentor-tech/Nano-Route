@@ -11,30 +11,75 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
+  Bell,
+  CheckCircle2,
   Cpu,
+  Download,
   HardDrive,
+  Layers,
+  MessageSquare,
+  Palette,
   RefreshCw,
+  RotateCcw,
   Server,
   ShieldCheck,
   Sliders,
+  Sparkles,
+  Upload,
 } from "lucide-react";
 import {
   getSettingsWorkspaceSnapshot,
   type SettingsWorkspaceSnapshotDto,
 } from "../../../services/ipc";
 import { GeneralSettingsPanel } from "./GeneralSettingsPanel";
+import { AppearanceSettingsPanel } from "./AppearanceSettingsPanel";
+import { ChatSettingsPanel } from "./ChatSettingsPanel";
+import { NotificationPreferencesPanel } from "./NotificationPreferencesPanel";
 import { ProviderManagementPanel } from "./ProviderManagementPanel";
 import { ModelsAndRoutingPanel } from "./ModelsAndRoutingPanel";
 import { PrivacyDataLifecyclePanel } from "./PrivacyDataLifecyclePanel";
 import { SecurityDiagnosticsPanel } from "./SecurityDiagnosticsPanel";
+import { WorkspaceProfilesPanel } from "../../profiles";
+import { ResetWorkspacePanel } from "../../reset";
+import { DataExportPanel } from "../../export";
+import { DataImportPanel } from "../../import";
+import { DataIntegrityWorkspace } from "../../integrity";
+import { MaintenanceWorkspace } from "../../maintenance";
 
-export type SettingsTabId = "general" | "providers" | "models" | "privacy" | "security";
+export type SettingsTabId =
+  | "general"
+  | "appearance"
+  | "chat"
+  | "notifications"
+  | "profiles"
+  | "providers"
+  | "models"
+  | "privacy"
+  | "export"
+  | "import"
+  | "integrity"
+  | "maintenance"
+  | "security"
+  | "reset";
 
 export const SettingsWorkspace: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get("tab") as SettingsTabId | null;
   const activeTab: SettingsTabId =
-    rawTab && ["general", "providers", "models", "privacy", "security"].includes(rawTab)
+    rawTab &&
+    [
+      "general",
+      "appearance",
+      "chat",
+      "notifications",
+      "profiles",
+      "providers",
+      "models",
+      "privacy",
+      "export",
+      "security",
+      "reset",
+    ].includes(rawTab)
       ? rawTab
       : "general";
 
@@ -68,10 +113,19 @@ export const SettingsWorkspace: React.FC = () => {
 
   const navItems: { id: SettingsTabId; label: string; icon: React.ReactNode }[] = [
     { id: "general", label: "General", icon: <Sliders style={{ width: "16px", height: "16px" }} /> },
+    { id: "appearance", label: "Appearance", icon: <Palette style={{ width: "16px", height: "16px" }} /> },
+    { id: "chat", label: "Chat", icon: <MessageSquare style={{ width: "16px", height: "16px" }} /> },
+    { id: "notifications", label: "Notifications", icon: <Bell style={{ width: "16px", height: "16px" }} /> },
+    { id: "profiles", label: "Profiles & Presets", icon: <Layers style={{ width: "16px", height: "16px" }} /> },
     { id: "providers", label: "Providers", icon: <Server style={{ width: "16px", height: "16px" }} /> },
     { id: "models", label: "Models & Routing", icon: <Cpu style={{ width: "16px", height: "16px" }} /> },
     { id: "privacy", label: "Privacy & Data", icon: <HardDrive style={{ width: "16px", height: "16px" }} /> },
+    { id: "export", label: "Data Export", icon: <Download style={{ width: "16px", height: "16px" }} /> },
+    { id: "import", label: "Data Import", icon: <Upload style={{ width: "16px", height: "16px" }} /> },
+    { id: "integrity", label: "Data Integrity", icon: <CheckCircle2 style={{ width: "16px", height: "16px" }} /> },
+    { id: "maintenance", label: "Maintenance", icon: <Sparkles style={{ width: "16px", height: "16px" }} /> },
     { id: "security", label: "Security & Diagnostics", icon: <ShieldCheck style={{ width: "16px", height: "16px" }} /> },
+    { id: "reset", label: "Reset & Recovery", icon: <RotateCcw style={{ width: "16px", height: "16px" }} /> },
   ];
 
   return (
@@ -214,6 +268,29 @@ export const SettingsWorkspace: React.FC = () => {
             />
           )}
 
+          {activeTab === "appearance" && (
+            <AppearanceSettingsPanel
+              appSettings={snapshot.appSettings}
+              onSettingsChanged={() => loadSnapshot()}
+            />
+          )}
+
+          {activeTab === "chat" && (
+            <ChatSettingsPanel
+              appSettings={snapshot.appSettings}
+              onSettingsChanged={() => loadSnapshot()}
+            />
+          )}
+
+          {activeTab === "notifications" && (
+            <NotificationPreferencesPanel
+              appSettings={snapshot.appSettings}
+              onSettingsChanged={() => loadSnapshot()}
+            />
+          )}
+
+          {activeTab === "profiles" && <WorkspaceProfilesPanel />}
+
           {activeTab === "providers" && (
             <ProviderManagementPanel
               providers={snapshot.providers}
@@ -234,6 +311,14 @@ export const SettingsWorkspace: React.FC = () => {
 
           {activeTab === "privacy" && <PrivacyDataLifecyclePanel />}
 
+          {activeTab === "export" && <DataExportPanel />}
+
+          {activeTab === "import" && <DataImportPanel />}
+
+          {activeTab === "integrity" && <DataIntegrityWorkspace />}
+
+          {activeTab === "maintenance" && <MaintenanceWorkspace />}
+
           {activeTab === "security" && (
             <SecurityDiagnosticsPanel
               appSettings={snapshot.appSettings}
@@ -242,6 +327,8 @@ export const SettingsWorkspace: React.FC = () => {
               securityStatus={snapshot.securityStatus}
             />
           )}
+
+          {activeTab === "reset" && <ResetWorkspacePanel />}
         </div>
       ) : null}
     </div>

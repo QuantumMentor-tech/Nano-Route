@@ -7,6 +7,7 @@ import {
   Info,
   Mail,
   Activity,
+  HelpCircle,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTE_PATHS } from "./routePaths.ts";
@@ -79,6 +80,14 @@ export const NAVIGATION_SECTIONS: NavigationSection[] = [
         icon: Activity,
         section: "application",
         tooltip: "System Health & Self-Tests",
+      },
+      {
+        id: "help",
+        label: "Help",
+        path: ROUTE_PATHS.HELP,
+        icon: HelpCircle,
+        section: "application",
+        tooltip: "Documentation & Troubleshooting",
       },
       {
         id: "license",

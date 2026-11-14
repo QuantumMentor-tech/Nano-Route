@@ -303,6 +303,16 @@ export async function checkProviderHealth(
   if (!isTauriContext()) {
     const snap = mutableMockHealthSnapshots[providerId.toLowerCase()];
     if (snap) {
+      if (snap.state === "authentication_failed" || snap.state === "authorization_failed") {
+        return {
+          providerId,
+          status: snap.state,
+          latencyMs: snap.lastLatencyMs ?? 42,
+          httpStatus: snap.lastHttpStatus ?? (snap.state === "authentication_failed" ? 401 : 403),
+          errorCategory: snap.reasonCode ?? (snap.state === "authentication_failed" ? "invalid_api_key" : "revoked_credential"),
+          checkedAtMs: Date.now(),
+        };
+      }
       snap.state = "ready";
       snap.lastObservedAtMs = Date.now();
       snap.lastSuccessAtMs = Date.now();

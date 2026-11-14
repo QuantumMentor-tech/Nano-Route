@@ -10,6 +10,7 @@ import {
   ContactPage,
   NotFoundPage,
   DiagnosticsPage,
+  HelpPage,
 } from "../pages";
 
 export const router = createHashRouter([
@@ -48,6 +49,10 @@ export const router = createHashRouter([
       {
         path: "diagnostics",
         element: <DiagnosticsPage />,
+      },
+      {
+        path: "help",
+        element: <HelpPage />,
       },
       {
         path: "*",

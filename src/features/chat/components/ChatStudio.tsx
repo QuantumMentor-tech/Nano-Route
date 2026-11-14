@@ -7,7 +7,7 @@
 //! composer, loading skeletons, and empty states.
 */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import type { SubmitPromptIntent } from "../types";
 import { useChatStudio } from "../useChatStudio";
 import { ChatSessionSidebar } from "./ChatSessionSidebar";
@@ -18,6 +18,10 @@ import { EmptyChatState } from "./EmptyChatState";
 import { EmptyNoSessionState } from "./EmptyNoSessionState";
 import { ChatLoadingState } from "./ChatLoadingState";
 import { ChatErrorState } from "./ChatErrorState";
+import { ContextIndicator, ContextReviewModal, evaluateContextPreflight } from "../../context";
+import { TemplateBrowserModal } from "../../templates";
+import { ContextCollectionModal } from "../../context-collections";
+import { RequestInspectorModal } from "../../request-inspector";
 
 export interface ChatStudioProps {
   initialSessionId?: string | null;
@@ -34,6 +38,12 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [composerSeed, setComposerSeed] = useState("");
+  const [isContextModalOpen, setIsContextModalOpen] = useState(false);
+  const [isTemplateBrowserOpen, setIsTemplateBrowserOpen] = useState(false);
+  const [isCollectionBrowserOpen, setIsCollectionBrowserOpen] = useState(false);
+  const [isRequestInspectorOpen, setIsRequestInspectorOpen] = useState(false);
+  const [inspectPrompt, setInspectPrompt] = useState("");
+  const [inspectAttachments, setInspectAttachments] = useState<any[]>([]);
 
   const {
     sessions,
@@ -67,6 +77,16 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
     setComposerSeed("");
     await submitPrompt(prompt);
   };
+
+  // Compute live context evaluation based on active messages and current prompt draft
+  const contextEval = useMemo(() => {
+    return evaluateContextPreflight({
+      providerId: "deepseek",
+      modelId: "deepseek-chat",
+      prompt: composerSeed,
+      history: messages,
+    });
+  }, [messages, composerSeed]);
 
   return (
     <div
@@ -154,9 +174,23 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
         <Composer
           onSubmit={handleSubmit}
           onCancel={cancelCurrentExecution}
+          sessionId={activeSessionId}
           isSubmitting={isSubmitting}
           isCancelling={isCancelling}
           initialValue={composerSeed}
+          onOpenTemplates={() => setIsTemplateBrowserOpen(true)}
+          onOpenCollections={() => setIsCollectionBrowserOpen(true)}
+          onInspectRequest={(prompt, attachments) => {
+            setInspectPrompt(prompt);
+            setInspectAttachments(attachments);
+            setIsRequestInspectorOpen(true);
+          }}
+          contextIndicator={
+            <ContextIndicator
+              evaluation={contextEval}
+              onOpenContextReview={() => setIsContextModalOpen(true)}
+            />
+          }
           placeholder={
             activeSession
               ? `Message in "${activeSession.title}"...`
@@ -164,6 +198,63 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
           }
         />
       </main>
+
+      {/* Template & Preset Browser Modal */}
+      <TemplateBrowserModal
+        isOpen={isTemplateBrowserOpen}
+        onClose={() => setIsTemplateBrowserOpen(false)}
+        onApplyPrompt={(prompt) => {
+          setComposerSeed(prompt);
+        }}
+      />
+
+      {/* Step 83: Context Collection & Reference Pack Modal */}
+      <ContextCollectionModal
+        isOpen={isCollectionBrowserOpen}
+        onClose={() => setIsCollectionBrowserOpen(false)}
+        onInsertContext={(formattedContext) => {
+          setComposerSeed((prev) =>
+            prev ? `${formattedContext}\n\n${prev}` : formattedContext
+          );
+        }}
+        resolverContext={{
+          messages: new Map(messages.map((m) => [m.id, m.content])),
+        }}
+      />
+
+      {/* Context Review & Reduction Modal */}
+      <ContextReviewModal
+        isOpen={isContextModalOpen}
+        evaluation={contextEval}
+        historyMessages={messages}
+        currentPrompt={composerSeed}
+        onClose={() => setIsContextModalOpen(false)}
+        onStartNewChat={async () => {
+          setIsContextModalOpen(false);
+          await createSession();
+        }}
+      />
+
+      {/* Step 84: Request Inspector & Preflight Transparency Modal */}
+      <RequestInspectorModal
+        isOpen={isRequestInspectorOpen}
+        onClose={() => setIsRequestInspectorOpen(false)}
+        snapshotParams={{
+          sessionId: activeSessionId,
+          prompt: inspectPrompt || composerSeed,
+          attachments: inspectAttachments,
+          historyMessages: messages,
+          providerId: "deepseek",
+          modelId: "deepseek-chat",
+        }}
+        onConfirmSend={async (finalPrompt) => {
+          setIsRequestInspectorOpen(false);
+          await handleSubmit(finalPrompt);
+        }}
+        onRemoveAttachment={(attId) => {
+          setInspectAttachments((prev) => prev.filter((a) => a.id !== attId));
+        }}
+      />
     </div>
   );
 };

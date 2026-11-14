@@ -32,6 +32,7 @@ import type {
   TerminationReasonDto,
   ErrorEnvelope,
 } from "./types";
+import { evaluateContextPreflight, normalizeContextError } from "../context";
 
 export interface UseChatStudioOptions {
   initialSessionId?: string | null;
@@ -395,6 +396,33 @@ export function useChatStudio(options: UseChatStudioOptions = {}) {
         const executionId = `exec_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
         setActiveExecutionId(executionId);
         activeExecutionIdRef.current = executionId;
+
+        // Step 76: Preflight Context Limit Check before network transmission
+        const candidateProvider = manualOverride?.providerId || "deepseek";
+        const candidateModel = manualOverride?.modelId || "deepseek-chat";
+        const preflight = evaluateContextPreflight({
+          providerId: candidateProvider,
+          modelId: candidateModel,
+          prompt,
+          history: messages,
+        });
+
+        if (!preflight.allowed && preflight.blockReason) {
+          setIsSubmitting(false);
+          setActiveExecutionId(null);
+          activeExecutionIdRef.current = null;
+          const normalized = normalizeContextError(
+            preflight.warningNotice ||
+              `Request blocked: context exceeds limit for ${preflight.limits.displayName}`,
+            candidateProvider,
+            candidateModel
+          );
+          setError({
+            category: "message",
+            message: normalized.message,
+          });
+          return;
+        }
 
         if (enableStreaming) {
           let userMessage: ChatMessage | null = null;

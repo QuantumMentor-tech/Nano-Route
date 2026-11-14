@@ -14,12 +14,12 @@ import {
   type ModelSettingsSummaryDto,
   type ProviderCredentialStatus,
   type ProviderSettingsSummaryDto,
-  type RoutingPreferenceMode,
   type SecurityStatusSummaryDto,
   type SettingsWorkspaceSnapshotDto,
   type UpdateProviderPreferencesRequest,
   type ProviderDescriptorDto,
   type ModelDescriptorDto,
+  type PreferenceSection,
 } from "./types.ts";
 import { IpcError } from "./errors.ts";
 import { listRegisteredProviders, listRegisteredModels } from "./registry.ts";
@@ -37,6 +37,33 @@ export const DEFAULT_APP_SETTINGS: Readonly<AppSettingsSnapshot> = {
   manualOverrideEnabled: false,
   manualOverrideProvider: "",
   manualOverrideModel: "",
+
+  // Step 66: User Preferences & Workspace Personalization
+  themeMode: "dark",
+  density: "comfortable",
+  reducedMotion: "system",
+  textScale: "100%",
+  enhancedFocus: false,
+  startupRoute: "overview",
+  sidebarCollapsed: false,
+  confirmChatClear: true,
+  chatShowTimestamps: false,
+  chatCompactSpacing: false,
+  chatEnterToSend: true,
+  chatAutoScroll: true,
+  notificationEnableNonCriticalToasts: true,
+  notificationToastDurationMs: 5000,
+  paletteShowDescriptions: true,
+  paletteShowShortcuts: true,
+
+  // Step 67: Local Workspace Profiles
+  activeProfileId: "prof_default",
+  customProfilesJson: "[]",
+
+  // Step 68: Session Continuity & Crash-Safe Restoration
+  sessionStateJson: "",
+  lastExitStatus: "clean_exit",
+  restorePreviousSession: true,
 };
 
 // --- In-Memory Mock Store for Testing & Browser Mode ---
@@ -160,6 +187,177 @@ export function validateSetting(key: AppSettingKeyString, value: string): string
       }
       return trimmed;
     }
+    // --- Step 66: Appearance ---
+    case "appearance.theme_mode": {
+      const mode = trimmed.toLowerCase();
+      if (mode === "dark" || mode === "light" || mode === "system") {
+        return mode;
+      }
+      throw invalidInputError(`Invalid theme mode '${trimmed}'. Allowed: [dark, light, system]`);
+    }
+    case "appearance.density": {
+      const density = trimmed.toLowerCase();
+      if (density === "comfortable" || density === "compact") {
+        return density;
+      }
+      throw invalidInputError(`Invalid interface density '${trimmed}'. Allowed: [comfortable, compact]`);
+    }
+    case "appearance.reduced_motion": {
+      const motion = trimmed.toLowerCase();
+      if (motion === "system" || motion === "reduced" || motion === "standard") {
+        return motion;
+      }
+      throw invalidInputError(`Invalid motion preference '${trimmed}'. Allowed: [system, reduced, standard]`);
+    }
+    case "appearance.text_scale": {
+      if (trimmed === "100%" || trimmed === "110%" || trimmed === "125%") {
+        return trimmed;
+      }
+      throw invalidInputError(`Invalid text scale '${trimmed}'. Allowed: [100%, 110%, 125%]`);
+    }
+    case "appearance.enhanced_focus": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "true" || lower === "false") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid boolean value '${trimmed}' for appearance.enhanced_focus. Allowed: [true, false]`);
+    }
+    // --- Step 66: Workspace & Startup ---
+    case "workspace.startup_route": {
+      const route = trimmed.toLowerCase();
+      if (route === "overview" || route === "chat") {
+        return route;
+      }
+      throw invalidInputError(`Invalid startup route '${trimmed}'. Allowed: [overview, chat]`);
+    }
+    case "workspace.sidebar_collapsed": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "true" || lower === "false") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid boolean value '${trimmed}' for workspace.sidebar_collapsed. Allowed: [true, false]`);
+    }
+    case "workspace.confirm_chat_clear": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "true" || lower === "false") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid boolean value '${trimmed}' for workspace.confirm_chat_clear. Allowed: [true, false]`);
+    }
+    // --- Step 66: Chat ---
+    case "chat.show_timestamps": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "true" || lower === "false") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid boolean value '${trimmed}' for chat.show_timestamps. Allowed: [true, false]`);
+    }
+    case "chat.compact_spacing": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "true" || lower === "false") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid boolean value '${trimmed}' for chat.compact_spacing. Allowed: [true, false]`);
+    }
+    case "chat.enter_to_send": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "true" || lower === "false") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid boolean value '${trimmed}' for chat.enter_to_send. Allowed: [true, false]`);
+    }
+    case "chat.auto_scroll_to_bottom": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "true" || lower === "false") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid boolean value '${trimmed}' for chat.auto_scroll_to_bottom. Allowed: [true, false]`);
+    }
+    // --- Step 66: Notifications ---
+    case "notifications.enable_non_critical_toasts": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "true" || lower === "false") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid boolean value '${trimmed}' for notifications.enable_non_critical_toasts. Allowed: [true, false]`);
+    }
+    case "notifications.toast_duration_ms": {
+      const num = parseInt(trimmed, 10);
+      if (!Number.isNaN(num) && num >= 1000 && num <= 30000 && String(num) === trimmed) {
+        return String(num);
+      }
+      throw invalidInputError(`Invalid toast duration '${trimmed}'. Must be an integer between 1000 and 30000 ms`);
+    }
+    // --- Step 66: Command Palette ---
+    case "palette.show_descriptions": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "true" || lower === "false") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid boolean value '${trimmed}' for palette.show_descriptions. Allowed: [true, false]`);
+    }
+    case "palette.show_shortcuts": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "true" || lower === "false") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid boolean value '${trimmed}' for palette.show_shortcuts. Allowed: [true, false]`);
+    }
+    // --- Step 67: Local Workspace Profiles ---
+    case "workspace.active_profile_id": {
+      if (trimmed.length < 1 || trimmed.length > 64) {
+        throw invalidInputError("Active profile ID must be between 1 and 64 characters");
+      }
+      if (!/^[a-zA-Z0-9_.-]+$/.test(trimmed)) {
+        throw invalidInputError("Active profile ID contains invalid characters. Allowed: [a-zA-Z0-9_.-]");
+      }
+      return trimmed;
+    }
+    case "workspace.profiles": {
+      if (trimmed.length > 32768) {
+        throw invalidInputError("Workspace profiles JSON payload exceeds maximum size of 32KB");
+      }
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (!Array.isArray(parsed)) {
+          throw new Error("Profiles payload must be a JSON array");
+        }
+      } catch (err: unknown) {
+        throw invalidInputError(`Invalid workspace profiles JSON: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      return trimmed;
+    }
+    // --- Step 68: Session Continuity & Crash-Safe Restoration ---
+    case "workspace.session_state": {
+      if (trimmed.length > 8192) {
+        throw invalidInputError("Workspace session state payload exceeds maximum size of 8KB");
+      }
+      if (trimmed.length > 0) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+            throw new Error("Session state payload must be a JSON object");
+          }
+        } catch (err: unknown) {
+          throw invalidInputError(`Invalid workspace session state JSON: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+      return trimmed;
+    }
+    case "workspace.last_exit_status": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "clean_exit" || lower === "unexpected_exit" || lower === "startup_recovery" || lower === "unknown") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid exit status '${trimmed}'. Allowed: [clean_exit, unexpected_exit, startup_recovery, unknown]`);
+    }
+    case "workspace.restore_previous_session": {
+      const lower = trimmed.toLowerCase();
+      if (lower === "true" || lower === "false") {
+        return lower;
+      }
+      throw invalidInputError(`Invalid boolean value '${trimmed}' for workspace.restore_previous_session. Allowed: [true, false]`);
+    }
     default:
       throw invalidInputError(`Unknown application setting key '${key}'`);
   }
@@ -168,21 +366,71 @@ export function validateSetting(key: AppSettingKeyString, value: string): string
 // --- Application Settings API ---
 
 /**
+ * Helper to safely parse stored values or fallback to default.
+ */
+function safeGetBool(map: Map<string, string>, key: AppSettingKeyString, defaultVal: boolean): boolean {
+  const val = map.get(key);
+  if (val === undefined) return defaultVal;
+  return val.toLowerCase() === "true";
+}
+
+function safeGetEnum<T extends string>(map: Map<string, string>, key: AppSettingKeyString, allowed: readonly T[], defaultVal: T): T {
+  const val = map.get(key);
+  if (val && allowed.includes(val as T)) {
+    return val as T;
+  }
+  return defaultVal;
+}
+
+function safeGetInt(map: Map<string, string>, key: AppSettingKeyString, defaultVal: number, min?: number, max?: number): number {
+  const val = map.get(key);
+  if (val === undefined) return defaultVal;
+  const num = parseInt(val, 10);
+  if (Number.isNaN(num)) return defaultVal;
+  if (min !== undefined && num < min) return defaultVal;
+  if (max !== undefined && num > max) return defaultVal;
+  return num;
+}
+
+/**
  * Retrieves the full snapshot of typed application settings with virtual defaults resolved.
  */
 export async function getAppSettings(): Promise<AppSettingsSnapshot> {
   if (!isTauriContext()) {
-    const routingMode = (mockAppSettings.get("routing.preference_mode") as RoutingPreferenceMode) || DEFAULT_APP_SETTINGS.routingPreferenceMode;
-    const telemetryVal = mockAppSettings.get("telemetry.enabled");
-    const telemetryEnabled = telemetryVal !== undefined ? telemetryVal === "true" : DEFAULT_APP_SETTINGS.telemetryEnabled;
-    const retentionVal = mockAppSettings.get("history.retention_days");
-    const historyRetentionDays = retentionVal !== undefined ? parseInt(retentionVal, 10) : DEFAULT_APP_SETTINGS.historyRetentionDays;
-    const windowVal = mockAppSettings.get("window.start_maximized");
-    const windowStartMaximized = windowVal !== undefined ? windowVal === "true" : DEFAULT_APP_SETTINGS.windowStartMaximized;
-    const overrideEnabledVal = mockAppSettings.get("routing.manual_override_enabled");
-    const manualOverrideEnabled = overrideEnabledVal !== undefined ? overrideEnabledVal === "true" : DEFAULT_APP_SETTINGS.manualOverrideEnabled;
+    const routingMode = safeGetEnum(mockAppSettings, "routing.preference_mode", ["quality", "balanced", "cost_saving"] as const, DEFAULT_APP_SETTINGS.routingPreferenceMode);
+    const telemetryEnabled = safeGetBool(mockAppSettings, "telemetry.enabled", DEFAULT_APP_SETTINGS.telemetryEnabled);
+    const historyRetentionDays = safeGetInt(mockAppSettings, "history.retention_days", DEFAULT_APP_SETTINGS.historyRetentionDays, 0, 365);
+    const windowStartMaximized = safeGetBool(mockAppSettings, "window.start_maximized", DEFAULT_APP_SETTINGS.windowStartMaximized);
+    const manualOverrideEnabled = safeGetBool(mockAppSettings, "routing.manual_override_enabled", DEFAULT_APP_SETTINGS.manualOverrideEnabled ?? false);
     const manualOverrideProvider = mockAppSettings.get("routing.manual_override_provider") ?? DEFAULT_APP_SETTINGS.manualOverrideProvider;
     const manualOverrideModel = mockAppSettings.get("routing.manual_override_model") ?? DEFAULT_APP_SETTINGS.manualOverrideModel;
+
+    // Step 66 preferences
+    const themeMode = safeGetEnum(mockAppSettings, "appearance.theme_mode", ["dark", "light", "system"] as const, DEFAULT_APP_SETTINGS.themeMode ?? "dark");
+    const density = safeGetEnum(mockAppSettings, "appearance.density", ["comfortable", "compact"] as const, DEFAULT_APP_SETTINGS.density ?? "comfortable");
+    const reducedMotion = safeGetEnum(mockAppSettings, "appearance.reduced_motion", ["system", "reduced", "standard"] as const, DEFAULT_APP_SETTINGS.reducedMotion ?? "system");
+    const textScale = safeGetEnum(mockAppSettings, "appearance.text_scale", ["100%", "110%", "125%"] as const, DEFAULT_APP_SETTINGS.textScale ?? "100%");
+    const enhancedFocus = safeGetBool(mockAppSettings, "appearance.enhanced_focus", DEFAULT_APP_SETTINGS.enhancedFocus ?? false);
+    const startupRoute = safeGetEnum(mockAppSettings, "workspace.startup_route", ["overview", "chat"] as const, DEFAULT_APP_SETTINGS.startupRoute ?? "overview");
+    const sidebarCollapsed = safeGetBool(mockAppSettings, "workspace.sidebar_collapsed", DEFAULT_APP_SETTINGS.sidebarCollapsed ?? false);
+    const confirmChatClear = safeGetBool(mockAppSettings, "workspace.confirm_chat_clear", DEFAULT_APP_SETTINGS.confirmChatClear ?? true);
+    const chatShowTimestamps = safeGetBool(mockAppSettings, "chat.show_timestamps", DEFAULT_APP_SETTINGS.chatShowTimestamps ?? false);
+    const chatCompactSpacing = safeGetBool(mockAppSettings, "chat.compact_spacing", DEFAULT_APP_SETTINGS.chatCompactSpacing ?? false);
+    const chatEnterToSend = safeGetBool(mockAppSettings, "chat.enter_to_send", DEFAULT_APP_SETTINGS.chatEnterToSend ?? true);
+    const chatAutoScroll = safeGetBool(mockAppSettings, "chat.auto_scroll_to_bottom", DEFAULT_APP_SETTINGS.chatAutoScroll ?? true);
+    const notificationEnableNonCriticalToasts = safeGetBool(mockAppSettings, "notifications.enable_non_critical_toasts", DEFAULT_APP_SETTINGS.notificationEnableNonCriticalToasts ?? true);
+    const notificationToastDurationMs = safeGetInt(mockAppSettings, "notifications.toast_duration_ms", DEFAULT_APP_SETTINGS.notificationToastDurationMs ?? 5000, 1000, 30000);
+    const paletteShowDescriptions = safeGetBool(mockAppSettings, "palette.show_descriptions", DEFAULT_APP_SETTINGS.paletteShowDescriptions ?? true);
+    const paletteShowShortcuts = safeGetBool(mockAppSettings, "palette.show_shortcuts", DEFAULT_APP_SETTINGS.paletteShowShortcuts ?? true);
+
+    // Step 67: Local Workspace Profiles
+    const activeProfileId = mockAppSettings.get("workspace.active_profile_id") ?? DEFAULT_APP_SETTINGS.activeProfileId;
+    const customProfilesJson = mockAppSettings.get("workspace.profiles") ?? DEFAULT_APP_SETTINGS.customProfilesJson;
+
+    // Step 68: Session Continuity & Crash-Safe Restoration
+    const sessionStateJson = mockAppSettings.get("workspace.session_state") ?? DEFAULT_APP_SETTINGS.sessionStateJson;
+    const lastExitStatus = mockAppSettings.get("workspace.last_exit_status") ?? DEFAULT_APP_SETTINGS.lastExitStatus;
+    const restorePreviousSession = safeGetBool(mockAppSettings, "workspace.restore_previous_session", DEFAULT_APP_SETTINGS.restorePreviousSession ?? true);
 
     return {
       routingPreferenceMode: routingMode,
@@ -192,6 +440,27 @@ export async function getAppSettings(): Promise<AppSettingsSnapshot> {
       manualOverrideEnabled,
       manualOverrideProvider,
       manualOverrideModel,
+      themeMode,
+      density,
+      reducedMotion,
+      textScale,
+      enhancedFocus,
+      startupRoute,
+      sidebarCollapsed,
+      confirmChatClear,
+      chatShowTimestamps,
+      chatCompactSpacing,
+      chatEnterToSend,
+      chatAutoScroll,
+      notificationEnableNonCriticalToasts,
+      notificationToastDurationMs,
+      paletteShowDescriptions,
+      paletteShowShortcuts,
+      activeProfileId,
+      customProfilesJson,
+      sessionStateJson,
+      lastExitStatus,
+      restorePreviousSession,
     };
   }
 
@@ -216,6 +485,55 @@ export async function getAppSetting(key: AppSettingKeyString): Promise<string> {
         return String(DEFAULT_APP_SETTINGS.historyRetentionDays);
       case "window.start_maximized":
         return String(DEFAULT_APP_SETTINGS.windowStartMaximized);
+      case "routing.manual_override_enabled":
+        return String(DEFAULT_APP_SETTINGS.manualOverrideEnabled ?? false);
+      case "routing.manual_override_provider":
+        return DEFAULT_APP_SETTINGS.manualOverrideProvider ?? "";
+      case "routing.manual_override_model":
+        return DEFAULT_APP_SETTINGS.manualOverrideModel ?? "";
+      case "appearance.theme_mode":
+        return DEFAULT_APP_SETTINGS.themeMode ?? "dark";
+      case "appearance.density":
+        return DEFAULT_APP_SETTINGS.density ?? "comfortable";
+      case "appearance.reduced_motion":
+        return DEFAULT_APP_SETTINGS.reducedMotion ?? "system";
+      case "appearance.text_scale":
+        return DEFAULT_APP_SETTINGS.textScale ?? "100%";
+      case "appearance.enhanced_focus":
+        return String(DEFAULT_APP_SETTINGS.enhancedFocus ?? false);
+      case "workspace.startup_route":
+        return DEFAULT_APP_SETTINGS.startupRoute ?? "overview";
+      case "workspace.sidebar_collapsed":
+        return String(DEFAULT_APP_SETTINGS.sidebarCollapsed ?? false);
+      case "workspace.confirm_chat_clear":
+        return String(DEFAULT_APP_SETTINGS.confirmChatClear ?? true);
+      case "chat.show_timestamps":
+        return String(DEFAULT_APP_SETTINGS.chatShowTimestamps ?? false);
+      case "chat.compact_spacing":
+        return String(DEFAULT_APP_SETTINGS.chatCompactSpacing ?? false);
+      case "chat.enter_to_send":
+        return String(DEFAULT_APP_SETTINGS.chatEnterToSend ?? true);
+      case "chat.auto_scroll_to_bottom":
+        return String(DEFAULT_APP_SETTINGS.chatAutoScroll ?? true);
+      case "notifications.enable_non_critical_toasts":
+        return String(DEFAULT_APP_SETTINGS.notificationEnableNonCriticalToasts ?? true);
+      case "notifications.toast_duration_ms":
+        return String(DEFAULT_APP_SETTINGS.notificationToastDurationMs ?? 5000);
+      case "palette.show_descriptions":
+        return String(DEFAULT_APP_SETTINGS.paletteShowDescriptions ?? true);
+      case "palette.show_shortcuts":
+        return String(DEFAULT_APP_SETTINGS.paletteShowShortcuts ?? true);
+      case "workspace.active_profile_id":
+        return DEFAULT_APP_SETTINGS.activeProfileId ?? "prof_default";
+      case "workspace.profiles":
+        return DEFAULT_APP_SETTINGS.customProfilesJson ?? "[]";
+      // Step 68: Session Continuity & Crash-Safe Restoration
+      case "workspace.session_state":
+        return DEFAULT_APP_SETTINGS.sessionStateJson ?? "";
+      case "workspace.last_exit_status":
+        return DEFAULT_APP_SETTINGS.lastExitStatus ?? "clean_exit";
+      case "workspace.restore_previous_session":
+        return String(DEFAULT_APP_SETTINGS.restorePreviousSession ?? true);
     }
   }
 
@@ -260,6 +578,72 @@ export async function resetAllAppSettings(): Promise<number> {
   }
 
   return safeInvoke<number>(IPC_COMMANDS.RESET_ALL_SETTINGS);
+}
+
+/**
+ * Mapping of preference sections to their constituent canonical setting keys.
+ */
+export const SECTION_SETTING_KEYS: Record<Exclude<PreferenceSection, "all_preferences">, AppSettingKeyString[]> = {
+  appearance: [
+    "appearance.theme_mode",
+    "appearance.density",
+    "appearance.reduced_motion",
+    "appearance.text_scale",
+    "appearance.enhanced_focus",
+  ],
+  workspace: [
+    "workspace.startup_route",
+    "workspace.sidebar_collapsed",
+    "workspace.confirm_chat_clear",
+  ],
+  chat: [
+    "chat.show_timestamps",
+    "chat.compact_spacing",
+    "chat.enter_to_send",
+    "chat.auto_scroll_to_bottom",
+  ],
+  notifications: [
+    "notifications.enable_non_critical_toasts",
+    "notifications.toast_duration_ms",
+  ],
+  palette: [
+    "palette.show_descriptions",
+    "palette.show_shortcuts",
+  ],
+  general: [
+    "routing.preference_mode",
+    "telemetry.enabled",
+    "window.start_maximized",
+  ],
+};
+
+/**
+ * Safely resets a specific section or all user preferences to virtual defaults.
+ * Strictly guarantees that credentials, chat history, and telemetry remain untouched.
+ */
+export async function resetSettingsSection(section: PreferenceSection): Promise<number> {
+  const keysToReset: AppSettingKeyString[] =
+    section === "all_preferences"
+      ? (Object.values(SECTION_SETTING_KEYS).flat() as AppSettingKeyString[])
+      : (SECTION_SETTING_KEYS[section] ?? []);
+
+  let resetCount = 0;
+  for (const key of keysToReset) {
+    const reset = await resetAppSetting(key);
+    if (reset) {
+      resetCount++;
+    }
+  }
+
+  return resetCount;
+}
+
+/**
+ * Resets all user workspace and presentation preferences.
+ * Convenience alias for resetSettingsSection("all_preferences").
+ */
+export async function resetAllUserPreferences(): Promise<number> {
+  return resetSettingsSection("all_preferences");
 }
 
 /**

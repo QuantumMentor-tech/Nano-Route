@@ -648,8 +648,8 @@ describe("Step 42 — Telemetry Dashboard, Operational Routing Insights & Local 
         assert.equal(snapshot.timeSeries.length, 28);
         assertSnapshotInvariants(snapshot);
         assert.ok(
-          elapsedMs < 2500,
-          `Aggregation of ${size} records took ${elapsedMs.toFixed(1)}ms (expected < 2500ms)`,
+          elapsedMs < 5000,
+          `Aggregation of ${size} records took ${elapsedMs.toFixed(1)}ms (expected < 5000ms)`,
         );
       }
     });

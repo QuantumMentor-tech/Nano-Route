@@ -2,6 +2,8 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { MessageSquare, Sparkles } from "lucide-react";
 import { Button, Badge } from "../../../components/ui";
+import { NotificationCenterTrigger } from "../../notifications";
+import { CommandPaletteTrigger } from "../../commands";
 import { useApplicationState } from "../../../state";
 import { ROUTE_PATHS } from "../../../routes/routePaths";
 
@@ -58,6 +60,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onOpenOnboardi
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <CommandPaletteTrigger />
+        <NotificationCenterTrigger />
         {onOpenOnboarding && (
           <Button variant="secondary" size="sm" onClick={onOpenOnboarding}>
             <Sparkles

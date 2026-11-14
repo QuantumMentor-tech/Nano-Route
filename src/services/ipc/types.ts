@@ -990,10 +990,25 @@ export interface SaveCredentialRequest {
 }
 
 // ============================================================================
-// --- Application Settings & Provider Preferences Contracts (Step 20) ---
+// --- Application Settings & Provider Preferences Contracts (Step 20 & Step 66) ---
 // ============================================================================
 
 export type RoutingPreferenceMode = "quality" | "balanced" | "cost_saving";
+
+export type ThemeMode = "dark" | "light" | "system";
+export type InterfaceDensity = "comfortable" | "compact";
+export type MotionPreference = "system" | "reduced" | "standard";
+export type TextScalePreference = "100%" | "110%" | "125%";
+export type StartupRoutePreference = "overview" | "chat";
+
+export type PreferenceSection =
+  | "appearance"
+  | "workspace"
+  | "chat"
+  | "notifications"
+  | "palette"
+  | "general"
+  | "all_preferences";
 
 export type AppSettingKeyString =
   | "routing.preference_mode"
@@ -1002,7 +1017,31 @@ export type AppSettingKeyString =
   | "window.start_maximized"
   | "routing.manual_override_enabled"
   | "routing.manual_override_provider"
-  | "routing.manual_override_model";
+  | "routing.manual_override_model"
+  // Step 66: User Preferences & Personalization
+  | "appearance.theme_mode"
+  | "appearance.density"
+  | "appearance.reduced_motion"
+  | "appearance.text_scale"
+  | "appearance.enhanced_focus"
+  | "workspace.startup_route"
+  | "workspace.sidebar_collapsed"
+  | "workspace.confirm_chat_clear"
+  | "chat.show_timestamps"
+  | "chat.compact_spacing"
+  | "chat.enter_to_send"
+  | "chat.auto_scroll_to_bottom"
+  | "notifications.enable_non_critical_toasts"
+  | "notifications.toast_duration_ms"
+  | "palette.show_descriptions"
+  | "palette.show_shortcuts"
+  // Step 67: Local Workspace Profiles
+  | "workspace.active_profile_id"
+  | "workspace.profiles"
+  // Step 68: Session Continuity & Crash-Safe Restoration
+  | "workspace.session_state"
+  | "workspace.last_exit_status"
+  | "workspace.restore_previous_session";
 
 export interface AppSettingsSnapshot {
   routingPreferenceMode: RoutingPreferenceMode;
@@ -1012,6 +1051,33 @@ export interface AppSettingsSnapshot {
   manualOverrideEnabled?: boolean;
   manualOverrideProvider?: string;
   manualOverrideModel?: string;
+
+  // Step 66: User Preferences & Workspace Personalization
+  themeMode?: ThemeMode;
+  density?: InterfaceDensity;
+  reducedMotion?: MotionPreference;
+  textScale?: TextScalePreference;
+  enhancedFocus?: boolean;
+  startupRoute?: StartupRoutePreference;
+  sidebarCollapsed?: boolean;
+  confirmChatClear?: boolean;
+  chatShowTimestamps?: boolean;
+  chatCompactSpacing?: boolean;
+  chatEnterToSend?: boolean;
+  chatAutoScroll?: boolean;
+  notificationEnableNonCriticalToasts?: boolean;
+  notificationToastDurationMs?: number;
+  paletteShowDescriptions?: boolean;
+  paletteShowShortcuts?: boolean;
+
+  // Step 67: Local Workspace Profiles
+  activeProfileId?: string;
+  customProfilesJson?: string;
+
+  // Step 68: Session Continuity & Crash-Safe Restoration
+  sessionStateJson?: string;
+  lastExitStatus?: string;
+  restorePreviousSession?: boolean;
 }
 
 export interface ProviderSettingsSummaryDto {
