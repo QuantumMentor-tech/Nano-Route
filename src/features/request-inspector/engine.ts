@@ -13,6 +13,7 @@
 import { evaluateContextPreflight, estimateTextTokens, resolveModelContextLimits } from "../context/engine.ts";
 import { evaluateBudgetPreflight } from "../budget/engine.ts";
 import { formatAttachmentsAsPromptContext } from "../attachments/validator.ts";
+import { isRemoteProviderBlocked } from "../connectivity/engine.ts";
 import type {
   CanonicalRequestSnapshot,
   AssembleSnapshotParams,
@@ -240,6 +241,18 @@ export async function assembleRequestSnapshot(
       source: "ROUTING",
       title: "Model Capability Conflict",
       message: compatibilityDetails || "Selected model cannot process requested input formats.",
+    });
+  }
+
+  // Step 86: Connectivity & Offline check
+  const connCheck = isRemoteProviderBlocked(providerId);
+  if (connCheck.blocked && connCheck.reason) {
+    warnings.push({
+      id: "warn_connectivity_blocked",
+      severity: "BLOCKING",
+      source: "ROUTING",
+      title: "Network Offline",
+      message: connCheck.reason,
     });
   }
 

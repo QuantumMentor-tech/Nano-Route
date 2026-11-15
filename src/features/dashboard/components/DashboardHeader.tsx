@@ -4,6 +4,11 @@ import { MessageSquare, Sparkles } from "lucide-react";
 import { Button, Badge } from "../../../components/ui";
 import { NotificationCenterTrigger } from "../../notifications";
 import { CommandPaletteTrigger } from "../../commands";
+import { ActiveRequestIndicator } from "../../execution-center";
+import { ConnectivityIndicator } from "../../connectivity";
+import { CompatibilityCenterTrigger } from "../../provider-compatibility";
+import { PrivacyCenterTrigger } from "../../privacy-center";
+import { AuditExplorerTrigger } from "../../audit";
 import { useApplicationState } from "../../../state";
 import { ROUTE_PATHS } from "../../../routes/routePaths";
 
@@ -60,6 +65,11 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onOpenOnboardi
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <ConnectivityIndicator />
+        <ActiveRequestIndicator />
+        <CompatibilityCenterTrigger variant="compact" />
+        <PrivacyCenterTrigger variant="compact" />
+        <AuditExplorerTrigger variant="compact" />
         <CommandPaletteTrigger />
         <NotificationCenterTrigger />
         {onOpenOnboarding && (

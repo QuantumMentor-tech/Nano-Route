@@ -33,6 +33,8 @@ import type {
   ErrorEnvelope,
 } from "./types";
 import { evaluateContextPreflight, normalizeContextError } from "../context";
+import { registerExecutionTask, updateExecutionTaskState } from "../execution-center";
+import { isRemoteProviderBlocked } from "../connectivity";
 
 export interface UseChatStudioOptions {
   initialSessionId?: string | null;
@@ -194,6 +196,9 @@ export function useChatStudio(options: UseChatStudioOptions = {}) {
       try {
         if (activeExecId) {
           await cancelChatExecution(activeExecId, reason);
+          updateExecutionTaskState(activeExecId, "CANCELLED", {
+            progressStep: "Execution cancelled by user.",
+          });
         } else if (currentSession) {
           await cancelSessionChat(currentSession, reason);
         }
@@ -376,6 +381,7 @@ export function useChatStudio(options: UseChatStudioOptions = {}) {
       setIsSubmitting(true);
       setError(null);
       const streamErrorRef: { current?: ErrorEnvelope } = {};
+      let execTaskId: string | null = null;
 
       try {
         let currentSessionId = activeSessionId;
@@ -397,6 +403,15 @@ export function useChatStudio(options: UseChatStudioOptions = {}) {
         setActiveExecutionId(executionId);
         activeExecutionIdRef.current = executionId;
 
+        // Step 85: Register in Active Request Center
+        const execTask = registerExecutionTask({
+          logicalRequestId: executionId,
+          sessionId: currentSessionId,
+          promptSnippet: prompt,
+          cancellable: true,
+        });
+        execTaskId = execTask.taskId;
+
         // Step 76: Preflight Context Limit Check before network transmission
         const candidateProvider = manualOverride?.providerId || "deepseek";
         const candidateModel = manualOverride?.modelId || "deepseek-chat";
@@ -408,6 +423,10 @@ export function useChatStudio(options: UseChatStudioOptions = {}) {
         });
 
         if (!preflight.allowed && preflight.blockReason) {
+          updateExecutionTaskState(execTask.taskId, "BLOCKED", {
+            error: { code: "CONTEXT_LIMIT_EXCEEDED", message: preflight.blockReason, recoverable: false },
+            progressStep: "Blocked by context limit.",
+          });
           setIsSubmitting(false);
           setActiveExecutionId(null);
           activeExecutionIdRef.current = null;
@@ -420,6 +439,23 @@ export function useChatStudio(options: UseChatStudioOptions = {}) {
           setError({
             category: "message",
             message: normalized.message,
+          });
+          return;
+        }
+
+        // Step 86: Connectivity & Offline Preflight Check
+        const connectivityCheck = isRemoteProviderBlocked(candidateProvider);
+        if (connectivityCheck.blocked && connectivityCheck.reason) {
+          updateExecutionTaskState(execTask.taskId, "BLOCKED", {
+            error: { code: "NETWORK_OFFLINE", message: connectivityCheck.reason, recoverable: true },
+            progressStep: "Blocked: network offline.",
+          });
+          setIsSubmitting(false);
+          setActiveExecutionId(null);
+          activeExecutionIdRef.current = null;
+          setError({
+            category: "message",
+            message: connectivityCheck.reason,
           });
           return;
         }
@@ -671,6 +707,15 @@ export function useChatStudio(options: UseChatStudioOptions = {}) {
             status: assistantMessage ? "completed" : "cancelled",
           };
 
+          // Step 85: Update task state in Active Request Center
+          updateExecutionTaskState(execTask.taskId, assistantMessage ? "COMPLETED" : "CANCELLED", {
+            providerId: routedProvider,
+            modelId: routedModel,
+            displayName: `${routedProvider}/${routedModel}`,
+            outputTokens: completionTokens,
+            progressStep: assistantMessage ? "Response completed." : "Execution cancelled.",
+          });
+
           return result;
         }
 
@@ -713,8 +758,37 @@ export function useChatStudio(options: UseChatStudioOptions = {}) {
           onSubmitPromptIntent(intent);
         }
 
+        // Step 85: Update non-streaming completion in Active Request Center
+        updateExecutionTaskState(execTask.taskId, "COMPLETED", {
+          providerId: result.routedProvider,
+          modelId: result.routedModel,
+          displayName: `${result.routedProvider}/${result.routedModel}`,
+          outputTokens: result.completionTokens,
+          progressStep: "Response completed.",
+        });
+
         return result;
       } catch (err: unknown) {
+        // Step 85: Record task failure/cancellation in Active Request Center
+        const isCancelled =
+          typeof err === "object" &&
+          err !== null &&
+          "code" in err &&
+          (err as { code: string }).code === "EXECUTION_CANCELLED";
+
+        if (execTaskId) {
+          updateExecutionTaskState(execTaskId, isCancelled ? "CANCELLED" : "FAILED", {
+            error: isCancelled
+              ? null
+              : {
+                  code: "EXECUTION_ERROR",
+                  message: err instanceof Error ? err.message : "Failed to execute prompt request",
+                  recoverable: true,
+                },
+            progressStep: isCancelled ? "Execution cancelled." : "Execution failed.",
+          });
+        }
+
         if (isMountedRef.current) {
           // If cancelled during non-streaming, do not treat as fatal composer crash
           const isCancelled =

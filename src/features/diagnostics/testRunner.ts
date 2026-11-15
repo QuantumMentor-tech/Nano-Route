@@ -24,6 +24,7 @@ import { getUpdateState } from "../../services/ipc/updater.ts";
 import { listBackups } from "../../services/ipc/recovery.ts";
 import { checkProviderHealth } from "../../services/ipc/provider_health.ts";
 import { sanitizeErrorMessage } from "../../services/ipc/errors.ts";
+import { isAppOffline } from "../connectivity/engine.ts";
 
 export const DIAGNOSTIC_TEST_CATALOG: ReadonlyArray<DiagnosticTestDescriptor> = [
   {
@@ -391,6 +392,27 @@ export async function runSingleDiagnosticTest(
 
       case "PROV-CONN-001": {
         const providerId = options?.testProviderId || "openai";
+        if (isAppOffline()) {
+          return {
+            id: testId,
+            name: `${descriptor.name} (${providerId})`,
+            category: descriptor.category,
+            isNetworkBound: true,
+            status: "WARNING",
+            startedAt: now,
+            completedAt: new Date().toISOString(),
+            durationMs: Math.round(performance.now() - startTime),
+            summary: `Local network is OFFLINE. Cannot establish connection to ${providerId}.`,
+            safeDetails: {
+              providerId,
+              status: "network_offline",
+              latencyMs: null,
+            },
+            remediation: "Check your local network connection, Wi-Fi, or Ethernet cable.",
+            remediationActionPath: descriptor.remediationPath,
+          };
+        }
+
         const probeResult = await checkProviderHealth(providerId).catch((err) => ({
           status: "unknown" as const,
           errorCategory: err instanceof Error ? err.message : String(err),

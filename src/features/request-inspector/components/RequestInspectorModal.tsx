@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import type { CanonicalRequestSnapshot, AssembleSnapshotParams } from "../types.ts";
 import { assembleRequestSnapshot, revalidateSnapshotBeforeSubmit } from "../engine.ts";
+import { CompatibilityCenterTrigger } from "../../provider-compatibility";
 
 export interface RequestInspectorModalProps {
   isOpen: boolean;
@@ -642,7 +643,7 @@ export const RequestInspectorModal: React.FC<RequestInspectorModalProps> = ({
             backgroundColor: "var(--nr-bg-surface-subtle, #0d0f14)",
           }}
         >
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
             <button
               type="button"
               onClick={onClose}
@@ -678,6 +679,13 @@ export const RequestInspectorModal: React.FC<RequestInspectorModalProps> = ({
               <RefreshCw style={{ width: "12px", height: "12px" }} />
               <span>Refresh</span>
             </button>
+            <CompatibilityCenterTrigger
+              variant="compact"
+              requestRequirements={{
+                estimatedInputTokens: snapshot.totalEstimatedTokens,
+                requiresImageInput: snapshot.attachments.some((a) => a.isMultimodal),
+              }}
+            />
           </div>
 
           <button
