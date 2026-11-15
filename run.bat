@@ -3,7 +3,7 @@ setlocal EnableDelayedExpansion
 title Nano Route - Desktop AI Orchestrator Launcher
 
 :: ----------------------------------------------------------------------------
-:: Nano Route Windows Launcher
+:: Nano Route Windows Launcher & Task Runner (Steps 1-89 Complete)
 :: ----------------------------------------------------------------------------
 
 :CHECK_ENVIRONMENT
@@ -24,6 +24,21 @@ if %ERRORLEVEL% equ 0 (
     set "RUST_INSTALLED=0"
     set "RUST_STATUS=NOT DETECTED [Web Preview Mode available]"
 )
+
+:: Direct CLI argument dispatch
+if /i "%~1"=="dev" goto CLI_WEB
+if /i "%~1"=="web" goto CLI_WEB
+if /i "%~1"=="tauri" goto CLI_TAURI
+if /i "%~1"=="desktop" goto CLI_TAURI
+if /i "%~1"=="validate" goto CLI_VALIDATE
+if /i "%~1"=="test" goto CLI_TESTS
+if /i "%~1"=="typecheck" goto CLI_TYPECHECK
+if /i "%~1"=="build" goto CLI_BUILD
+if /i "%~1"=="install" goto CLI_INSTALL
+if /i "%~1"=="help" goto CLI_HELP
+if /i "%~1"=="--help" goto CLI_HELP
+if /i "%~1"=="-h" goto CLI_HELP
+
 goto MENU
 
 :INSTALL_INITIAL_DEPS
@@ -33,10 +48,76 @@ call npm.cmd install
 if %ERRORLEVEL% neq 0 (
     echo.
     echo [ERROR] npm install encountered an error.
-    pause
+    if "%~1"=="" pause
+    exit /b 1
 )
 goto CHECK_RUST
 
+:: ----------------------------------------------------------------------------
+:: Non-interactive CLI Subroutines
+:: ----------------------------------------------------------------------------
+:CLI_WEB
+echo [INFO] Starting Nano Route Web Dev Server...
+call npm.cmd run dev
+exit /b %ERRORLEVEL%
+
+:CLI_TAURI
+if "%RUST_INSTALLED%"=="0" (
+    echo [ERROR] Rust toolchain (cargo) is not detected on this system.
+    exit /b 1
+)
+echo [INFO] Starting Nano Route Tauri Desktop Engine...
+call npm.cmd run tauri:dev
+exit /b %ERRORLEVEL%
+
+:CLI_VALIDATE
+echo [INFO] Running full validation pipeline (typecheck + 1,071 tests + build)...
+call npm.cmd run validate
+exit /b %ERRORLEVEL%
+
+:CLI_TESTS
+echo [INFO] Running unit and contract tests (1,071 tests across 510 suites)...
+call npm.cmd test
+exit /b %ERRORLEVEL%
+
+:CLI_TYPECHECK
+echo [INFO] Running strict TypeScript typecheck...
+call npm.cmd run typecheck
+exit /b %ERRORLEVEL%
+
+:CLI_BUILD
+echo [INFO] Building production frontend bundle...
+call npm.cmd run build
+exit /b %ERRORLEVEL%
+
+:CLI_INSTALL
+echo [INFO] Installing / updating npm dependencies...
+call npm.cmd install
+exit /b %ERRORLEVEL%
+
+:CLI_HELP
+echo ============================================================================
+echo   NANO ROUTE CLI LAUNCHER HELP
+echo ============================================================================
+echo   Usage: run.bat [command]
+echo.
+echo   Commands:
+echo     dev ^| web       Start Vite development server on port 1420
+echo     tauri ^| desktop Start native Tauri v2 desktop application
+echo     validate        Run full pipeline (typecheck + 1,071 tests + build)
+echo     test            Run unit and contract test suite
+echo     typecheck       Run strict TypeScript verification
+echo     build           Build production bundle
+echo     install         Install or update npm dependencies
+echo     help            Show this help information
+echo.
+echo   If run with no arguments, run.bat launches an interactive console menu.
+echo ============================================================================
+exit /b 0
+
+:: ----------------------------------------------------------------------------
+:: Interactive Console Menu
+:: ----------------------------------------------------------------------------
 :MENU
 cls
 echo ============================================================================
@@ -48,7 +129,7 @@ echo Environment Status:
 echo   - Node.js runtime : Detected
 echo   - Dependencies    : Ready
 echo   - Rust [Cargo]    : %RUST_STATUS%
-echo   - Verified Steps  : Steps 1 through 47 Complete (529 Tests Passing)
+echo   - Verified Steps  : Steps 1 through 89 Complete (1,071 Tests Passing)
 echo.
 echo ============================================================================
 echo   SELECT AN OPTION:
@@ -56,15 +137,16 @@ echo ===========================================================================
 echo.
 echo   [1] Start Web Development Mode (Runs in browser at http://localhost:1420)
 echo   [2] Start Native Desktop Application (Tauri v2 + Rust native window)
-echo   [3] Run Full Validation Pipeline (Typecheck + 529 Tests + Build)
-echo   [4] Run Unit and Contract Tests (node --test across 273 suites)
-echo   [5] Build Production Frontend Bundle (tsc + vite build)
-echo   [6] Install / Update Dependencies (npm install)
-echo   [7] Exit
+echo   [3] Run Full Validation Pipeline (Typecheck + 1,071 Tests + Build)
+echo   [4] Run Unit and Contract Tests (node --test across 510 suites)
+echo   [5] Run Strict TypeScript Check (tsc --noEmit)
+echo   [6] Build Production Frontend Bundle (tsc + vite build)
+echo   [7] Install / Update Dependencies (npm install)
+echo   [8] Exit
 echo.
 echo ============================================================================
-set "CHOICE=""
-set /p "CHOICE=Enter choice [1-7]: "
+set "CHOICE="
+set /p "CHOICE=Enter choice [1-8]: "
 if not defined CHOICE goto EXIT_SCRIPT
 set "CHOICE=!CHOICE: =!"
 
@@ -72,12 +154,13 @@ if "%CHOICE%"=="1" goto RUN_WEB
 if "%CHOICE%"=="2" goto RUN_TAURI
 if "%CHOICE%"=="3" goto RUN_VALIDATE
 if "%CHOICE%"=="4" goto RUN_TESTS
-if "%CHOICE%"=="5" goto RUN_BUILD
-if "%CHOICE%"=="6" goto RUN_INSTALL
-if "%CHOICE%"=="7" goto EXIT_SCRIPT
+if "%CHOICE%"=="5" goto RUN_TYPECHECK
+if "%CHOICE%"=="6" goto RUN_BUILD
+if "%CHOICE%"=="7" goto RUN_INSTALL
+if "%CHOICE%"=="8" goto EXIT_SCRIPT
 
 echo.
-echo [WARNING] Invalid selection. Please choose a number between 1 and 7.
+echo [WARNING] Invalid selection. Please choose a number between 1 and 8.
 ping 127.0.0.1 -n 2 >nul
 goto MENU
 
@@ -125,7 +208,7 @@ goto MENU
 :RUN_VALIDATE
 cls
 echo ============================================================================
-echo   RUNNING FULL VALIDATION PIPELINE [TYPECHECK + 507 TESTS + BUILD]
+echo   RUNNING FULL VALIDATION PIPELINE [TYPECHECK + 1,071 TESTS + BUILD]
 echo ============================================================================
 echo.
 call npm.cmd run validate
@@ -136,10 +219,21 @@ goto MENU
 :RUN_TESTS
 cls
 echo ============================================================================
-echo   RUNNING UNIT AND CONTRACT TEST SUITE (507 TESTS ACROSS 266 SUITES)
+echo   RUNNING UNIT AND CONTRACT TEST SUITE (1,071 TESTS ACROSS 510 SUITES)
 echo ============================================================================
 echo.
 call npm.cmd test
+echo.
+pause
+goto MENU
+
+:RUN_TYPECHECK
+cls
+echo ============================================================================
+echo   RUNNING STRICT TYPESCRIPT TYPECHECK (tsc --noEmit)
+echo ============================================================================
+echo.
+call npm.cmd run typecheck
 echo.
 pause
 goto MENU
